@@ -1,0 +1,43 @@
+﻿@inherits LayoutComponentBase
+@inject AuthenticationStateProvider AuthStateProvider
+@inject PoFace.Client.Shared.ThemeService ThemeService
+
+<div class="terminal-shell">
+    <header class="terminal-header panel glow">
+        <pre class="ascii-logo" aria-label="PoFace logo">POFACE::ARCADE</pre>
+        <div class="status-line">
+            <span>Operator: @(_displayName ?? "anonymous")</span>
+            <span class="status-active">SYSTEM ONLINE</span>
+        </div>
+        <nav class="terminal-nav" aria-label="Primary">
+            <a href="/">Home</a>
+            <a href="/arena">Arena</a>
+            <a href="/leaderboard">Leaderboard</a>
+            <a href="/diag">PoVerify</a>
+        </nav>
+    </header>
+
+    <main>
+        <article class="content px-3 px-md-4 py-3">
+            @Body
+        </article>
+    </main>
+
+    <footer class="terminal-footer panel">
+        <a href="/diag">PoVerify Diagnostics</a>
+    </footer>
+</div>
+
+@code {
+    private string? _displayName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ThemeService.InitializeAsync();
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _displayName = authState.User.Identity?.IsAuthenticated == true
+            ? (authState.User.Identity?.Name ?? "authenticated-user")
+            : null;
+    }
+}

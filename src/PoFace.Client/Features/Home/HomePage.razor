@@ -1,0 +1,47 @@
+@page "/"
+@attribute [AllowAnonymous]
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>PoFace Terminal</PageTitle>
+
+<section class="panel glow text-flicker" aria-label="PoFace terminal welcome">
+<pre aria-label="PoFace logo">
+ ____        _____
+|  _ \ ___  |  ___|__   ___ ___
+| |_) / _ \ | |_ / _ \ / __/ _ \
+|  __/ (_) ||  _| (_) | (_|  __/
+|_|   \___(_)_|  \___/ \___\___|
+</pre>
+    <p>System Status: <span class="status-active">Active</span></p>
+    <p>Arcade protocol: 5 rounds, one target emotion per round, max 10 points each.</p>
+</section>
+
+<section class="panel mt-3" aria-label="How to play">
+    <h2>How To Play</h2>
+    <ol>
+        <li>Press Start Game.</li>
+        <li>Match the requested emotion before shutter.</li>
+        <li>Keep your face centered and front-facing.</li>
+        <li>Complete all 5 rounds for your total score.</li>
+        <li>If it is your best score, it is promoted to the leaderboard.</li>
+    </ol>
+
+    @if (_isAuthenticated)
+    {
+        <a class="btn btn-outline-success glow" href="/arena">Start Game</a>
+    }
+    else
+    {
+        <a class="btn btn-outline-success glow" href="authentication/login">Sign In To Start</a>
+    }
+</section>
+
+@code {
+    private bool _isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAuthenticated = state.User.Identity?.IsAuthenticated == true;
+    }
+}

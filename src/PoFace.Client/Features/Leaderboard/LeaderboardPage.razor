@@ -1,0 +1,85 @@
+@page "/leaderboard"
+@using System.Text.Json
+@inject HttpClient Http
+
+<PageTitle>Leaderboard – PoFace</PageTitle>
+
+<h1>Leaderboard</h1>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_errorMessage is not null)
+{
+    <p class="text-danger">@_errorMessage</p>
+}
+else
+{
+    <p>Year: <strong>@_year</strong> &mdash; @_entries.Count entries</p>
+
+    <RadzenDataGrid Data="@_entries" TItem="LeaderboardEntryDto" AllowSorting="true">
+        <Columns>
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="Rank"        Title="#"       Width="60px" />
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="DisplayName" Title="Player" />
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="TotalScore"  Title="Score"   Width="90px" />
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="DeviceType"  Title="Device"  Width="100px">
+                <Template Context="entry">
+                    @(entry.DeviceType == "Mobile" ? "📱" : "🖥️") @entry.DeviceType
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Title="Gallery" Width="120px">
+                <Template Context="entry">
+                    @if (!string.IsNullOrEmpty(entry.RecapUrl))
+                    {
+                        <a href="@entry.RecapUrl">View Gallery</a>
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
+}
+
+@code {
+    private bool               _loading = true;
+    private string?            _errorMessage;
+    private string             _year     = string.Empty;
+    private List<LeaderboardEntryDto> _entries = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await Http.GetFromJsonAsync<LeaderboardResponse>("/api/leaderboard");
+            if (result is not null)
+            {
+                _year    = result.Year;
+                _entries = result.Entries;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Could not load leaderboard: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // ── DTOs (mirrors API response shape) ────────────────────────────────────
+
+    private sealed record LeaderboardResponse(
+        string Year,
+        List<LeaderboardEntryDto> Entries,
+        int Count);
+
+    private sealed record LeaderboardEntryDto(
+        int    Rank,
+        string UserId,
+        string DisplayName,
+        int    TotalScore,
+        string DeviceType,
+        string RecapUrl,
+        string AchievedAt);
+}

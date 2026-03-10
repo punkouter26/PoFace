@@ -1,0 +1,64 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+      "apiVersion": "2023-05-01",
+      "name": "[concat(parameters('storageAccountName'), '/default')]",
+      "properties": {
+        "policy": {
+          "rules": [
+            {
+              "name": "CaptureLifecycleGeneral",
+              "enabled": true,
+              "type": "Lifecycle",
+              "definition": {
+                "filters": {
+                  "blobTypes": ["blockBlob"],
+                  "prefixMatch": ["poface-captures/"]
+                },
+                "actions": {
+                  "baseBlob": {
+                    "tierToCool": {
+                      "daysAfterModificationGreaterThan": 180
+                    },
+                    "tierToArchive": {
+                      "daysAfterModificationGreaterThan": 365
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "NonBestDeleteAfter2Days",
+              "enabled": true,
+              "type": "Lifecycle",
+              "definition": {
+                "filters": {
+                  "blobTypes": ["blockBlob"],
+                  "prefixMatch": ["poface-captures/non-best/"]
+                },
+                "actions": {
+                  "baseBlob": {
+                    "delete": {
+                      "daysAfterModificationGreaterThan": 2
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "parameters": {
+    "storageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Target Azure Storage account name."
+      }
+    }
+  }
+}

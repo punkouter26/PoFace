@@ -1,0 +1,106 @@
+@page "/diagnostics"
+@page "/diag"
+@attribute [Authorize]
+@inject HttpClient Http
+@implements IDisposable
+
+<PageTitle>PoFace Diagnostics</PageTitle>
+
+<h1>PoVerify Diagnostics</h1>
+
+@if (_report is null)
+{
+    <p>Loading diagnostics...</p>
+}
+else
+{
+    <div class="panel">
+        <h2>Service Health</h2>
+        @StatusLine("Face API", _report.Services.FaceApi.Status)
+        @StatusLine("Blob Storage", _report.Services.BlobStorage.Status)
+        @StatusLine("Table Storage", _report.Services.TableStorage.Status)
+    </div>
+
+    <div class="panel mt-3">
+        <h2>Masked Config</h2>
+        <p>Face API Key: <code>@_report.Config.FaceApiKeyMasked</code></p>
+        <p>Blob Account: <code>@_report.Config.BlobAccountName</code></p>
+        <p>App Insights: <code>@_report.Config.AppInsightsConnectionMasked</code></p>
+    </div>
+
+    <div class="panel mt-3">
+        <h2>Raw JSON</h2>
+        <pre>@_rawJson</pre>
+    </div>
+}
+
+@code {
+    private System.Timers.Timer? _timer;
+    private DiagnosticsReportDto? _report;
+    private string _rawJson = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+
+        _timer = new System.Timers.Timer(5000);
+        _timer.Elapsed += async (_, _) => await InvokeAsync(RefreshAsync);
+        _timer.AutoReset = true;
+        _timer.Start();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _report = await Http.GetFromJsonAsync<DiagnosticsReportDto>("/api/diag");
+        _rawJson = System.Text.Json.JsonSerializer.Serialize(_report,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        StateHasChanged();
+    }
+
+    private RenderFragment StatusLine(string serviceName, string status) => __builder =>
+    {
+        var color = status.Equals("OK", StringComparison.OrdinalIgnoreCase) ? "#00ff00" : "#ff2b2b";
+        __builder.OpenElement(0, "p");
+        __builder.AddMarkupContent(1, $"<span style=\"display:inline-block;width:10px;height:10px;border-radius:50%;background:{color};margin-right:8px;\"></span>");
+        __builder.AddContent(2, $"{serviceName}: {status}");
+        __builder.CloseElement();
+    };
+
+    public void Dispose()
+    {
+        if (_timer is null)
+            return;
+
+        _timer.Stop();
+        _timer.Dispose();
+    }
+
+    private sealed class DiagnosticsReportDto
+    {
+        public string Version { get; set; } = string.Empty;
+        public string Region { get; set; } = string.Empty;
+        public DateTimeOffset Timestamp { get; set; }
+        public DiagnosticsServicesDto Services { get; set; } = new();
+        public DiagnosticsConfigDto Config { get; set; } = new();
+    }
+
+    private sealed class DiagnosticsServicesDto
+    {
+        public ServiceStatusDto FaceApi { get; set; } = new();
+        public ServiceStatusDto BlobStorage { get; set; } = new();
+        public ServiceStatusDto TableStorage { get; set; } = new();
+    }
+
+    private sealed class DiagnosticsConfigDto
+    {
+        public string FaceApiKeyMasked { get; set; } = string.Empty;
+        public string BlobAccountName { get; set; } = string.Empty;
+        public string AppInsightsConnectionMasked { get; set; } = string.Empty;
+    }
+
+    private sealed class ServiceStatusDto
+    {
+        public string Status { get; set; } = string.Empty;
+        public string? Message { get; set; }
+    }
+}

@@ -1,0 +1,38 @@
+@* RoundPanel — renders a single round capture card within a Recap page. *@
+
+<div class="card round-panel h-100">
+    <img src="@Round.ImageUrl"
+         alt="Round @Round.RoundNumber capture — @Round.TargetEmotion"
+         class="card-img-top"
+         style="object-fit: cover; max-height: 220px;" />
+
+    <div class="card-body">
+        <h5 class="card-title">Round @Round.RoundNumber — @Round.TargetEmotion</h5>
+
+        <p class="card-text">
+            Score: <strong>@Round.Score / 10</strong>
+        </p>
+
+        <p class="card-text">
+            Head pose:
+            @if (Round.HeadPoseValid)
+            {
+                <span class="text-success">✅ Valid</span>
+            }
+            else
+            {
+                <span class="text-danger">❌ Invalid (score zeroed)</span>
+            }
+        </p>
+
+        <p class="card-text">
+            <small class="text-muted">@Round.CapturedAt.ToString("HH:mm:ss") UTC</small>
+        </p>
+    </div>
+</div>
+
+@code {
+    /// <summary>The round data to display. Required.</summary>
+    [Parameter, EditorRequired]
+    public RecapRoundDto Round { get; set; } = default!;
+}
