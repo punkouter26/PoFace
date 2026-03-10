@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PoFace.Api/PoFace.Api.csproj" />
+    <Project Path="src/PoFace.Client/PoFace.Client.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PoFace.IntegrationTests/PoFace.IntegrationTests.csproj" />
+    <Project Path="tests/PoFace.UnitTests/PoFace.UnitTests.csproj" />
+  </Folder>
+</Solution>

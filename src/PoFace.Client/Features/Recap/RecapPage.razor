@@ -1,0 +1,81 @@
+@page "/recap/{SessionId}"
+@inject HttpClient Http
+
+<PageTitle>Session Recap – PoFace</PageTitle>
+
+@if (_loading)
+{
+    <p><em>Loading recap…</em></p>
+}
+else if (_gone)
+{
+    <div class="alert alert-warning" role="alert">
+        <strong>Session Expired</strong> — This was a temporary session recap.
+        Temporary recaps are available for 24 hours after the session ends.
+    </div>
+}
+else if (_error is not null)
+{
+    <p class="text-danger">@_error</p>
+}
+else if (_recap is not null)
+{
+    <h1>@_recap.DisplayName</h1>
+    <p class="lead">
+        Total score: <strong>@_recap.TotalScore / 50</strong>
+        &nbsp;
+        @(_recap.IsPersonalBest ? "🏆 Personal Best!" : "Session Recap")
+    </p>
+    <p class="text-muted small">Completed @_recap.CompletedAt.ToString("yyyy-MM-dd HH:mm") UTC</p>
+
+    <div class="recap-rounds row g-3 mt-2">
+        @foreach (var round in _recap.Rounds)
+        {
+            <div class="col-12 col-md-6 col-lg-4">
+                <RoundPanel Round="@round" />
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string SessionId { get; set; } = string.Empty;
+
+    private bool      _loading = true;
+    private bool      _gone;
+    private string?   _error;
+    private RecapDto? _recap;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"/api/recap/{SessionId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                _recap = await response.Content.ReadFromJsonAsync<RecapDto>();
+            }
+            else if ((int)response.StatusCode == 410)
+            {
+                _gone = true;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _error = "Recap not found.";
+            }
+            else
+            {
+                _error = $"Unexpected error ({(int)response.StatusCode}).";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Could not load recap: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

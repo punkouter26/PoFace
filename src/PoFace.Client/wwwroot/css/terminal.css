@@ -1,0 +1,86 @@
+:root {
+    --color-primary: #00ff00;
+    --color-bg: #0a0a0a;
+    --accent: #39ff14;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: var(--color-bg);
+    color: var(--color-primary);
+    font-family: "Courier New", Courier, monospace;
+}
+
+a {
+    color: var(--accent);
+}
+
+a:hover {
+    color: #8dff7a;
+}
+
+button,
+.btn,
+input,
+select,
+textarea {
+    font-family: "Courier New", Courier, monospace;
+}
+
+.crt-scanline {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.04) 0px,
+        rgba(255, 255, 255, 0.04) 1px,
+        rgba(0, 0, 0, 0) 2px,
+        rgba(0, 0, 0, 0) 4px
+    );
+    animation: scanline 8s linear infinite;
+}
+
+.glow {
+    box-shadow: 0 0 8px var(--color-primary), 0 0 16px rgba(0, 255, 0, 0.5);
+}
+
+.text-flicker {
+    animation: text-flicker 2.8s infinite;
+}
+
+.status-active {
+    color: #72ff72;
+    text-shadow: 0 0 6px #00ff00;
+}
+
+.panel {
+    border: 1px solid #00aa00;
+    background: rgba(0, 16, 0, 0.55);
+    padding: 1rem;
+}
+
+@keyframes scanline {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(4px); }
+}
+
+@keyframes text-flicker {
+    0% { opacity: 1; }
+    8% { opacity: 0.92; }
+    10% { opacity: 0.76; }
+    11% { opacity: 0.97; }
+    14% { opacity: 0.81; }
+    16% { opacity: 1; }
+    100% { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+    .panel {
+        padding: 0.75rem;
+    }
+}

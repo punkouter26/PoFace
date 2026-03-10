@@ -1,0 +1,122 @@
+@using PoFace.Client.Services
+@inject IJSRuntime JS
+@inject GameOrchestrator Orchestrator
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+@page "/arena"
+@attribute [Authorize]
+
+<div class="arena-canvas">
+    @* Live webcam preview (always visible while camera is active) *@
+    <video id="webcam-preview"
+           autoplay
+           muted
+           playsinline
+           aria-label="Live camera preview"
+           style="display:@(ShowPreview ? "block" : "none"); width:100%; max-width:640px;" />
+
+    @* Targeting guide — shows red pulse when head pose is invalid *@
+    <FaceGuide HeadPoseInvalid="@HeadPoseInvalid" />
+
+    @* GET READY banner *@
+    @if (Orchestrator.State == GameState.GetReady)
+    {
+        <div class="overlay get-ready-banner" role="status" aria-live="polite">
+            <h2>ROUND @Orchestrator.CurrentRound</h2>
+            <p class="emotion-label">Show <strong>@Orchestrator.CurrentTargetEmotion</strong></p>
+        </div>
+    }
+
+    @* Countdown overlay *@
+    <CountdownOverlay State="@Orchestrator.State" Tick="@Orchestrator.CountdownTick" />
+
+    @* Frozen frame + score reveal *@
+    <FrozenFrameOverlay State="@Orchestrator.State"
+                        LastResult="@Orchestrator.Results.LastOrDefault()" />
+
+    @* Flash target that shutter animation paints *@
+    <div id="frozen-frame-overlay" class="shutter-target" aria-hidden="true"></div>
+
+    @* Game over summary *@
+    @if (Orchestrator.State == GameState.GameOver)
+    {
+        <div class="overlay game-over-panel" role="region" aria-label="Game over">
+            <h2>GAME OVER</h2>
+            <p class="total-score">Total: <strong>@Orchestrator.TotalScore</strong> / 50</p>
+            @if (Orchestrator.IsPersonalBest)
+            {
+                <p class="personal-best" aria-live="polite">🏆 Personal Best!</p>
+            }
+            <button class="btn-play-again" @onclick="PlayAgainAsync">Play Again</button>
+        </div>
+    }
+
+    @* Round progress indicator *@
+    <div class="round-progress" aria-label="Round progress">
+        @for (var i = 1; i <= 5; i++)
+        {
+            var round = i; // capture loop variable
+            var cls = round < Orchestrator.CurrentRound ? "round-dot done"
+                    : round == Orchestrator.CurrentRound ? "round-dot current"
+                    : "round-dot";
+            <span class="@cls" aria-current="@(round == Orchestrator.CurrentRound ? "step" : null)">
+                @round
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    private CancellationTokenSource _cts = new();
+
+    private bool ShowPreview =>
+        Orchestrator.State is GameState.Idle or GameState.GetReady
+                            or GameState.Countdown or GameState.Capturing;
+
+    private bool HeadPoseInvalid =>
+        Orchestrator.Results.LastOrDefault() is { HeadPoseValid: false, RoundNumber: var n }
+        && n == Orchestrator.CurrentRound - 1
+        && Orchestrator.State is GameState.GetReady or GameState.Countdown;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        Orchestrator.StateChanged += OnStateChanged;
+
+        try
+        {
+            await JS.InvokeVoidAsync("webcamInterop.initCamera", "webcam-preview");
+            await Orchestrator.StartGameAsync(_cts.Token);
+        }
+        catch (OperationCanceledException) { /* navigated away */ }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Arena start error: {ex.Message}");
+            Nav.NavigateTo("/");
+        }
+    }
+
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task PlayAgainAsync()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+        _cts = new CancellationTokenSource();
+        try
+        {
+            await Orchestrator.StartGameAsync(_cts.Token);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Orchestrator.StateChanged -= OnStateChanged;
+        _cts.Cancel();
+        _cts.Dispose();
+        await JS.InvokeVoidAsync("webcamInterop.releaseCamera");
+    }
+}

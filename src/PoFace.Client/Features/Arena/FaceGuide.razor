@@ -1,0 +1,14 @@
+@* FaceGuide — centered ellipse showing the player where to position their face.
+   Pulses red when the last captured frame had an invalid head pose. *@
+
+<div class="face-guide-container" aria-hidden="true">
+    <div class="face-guide-ellipse @(HeadPoseInvalid ? "pose-invalid" : "pose-ok")"></div>
+</div>
+
+@code {
+    /// <summary>
+    /// When <c>true</c> the ellipse renders with a red pulse animation to
+    /// indicate the camera head-pose is out of the ±20° acceptance window.
+    /// </summary>
+    [Parameter] public bool HeadPoseInvalid { get; set; }
+}

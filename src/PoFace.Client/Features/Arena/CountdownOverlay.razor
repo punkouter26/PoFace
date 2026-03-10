@@ -1,0 +1,28 @@
+@using PoFace.Client.Services
+@inject AudioService Audio
+
+@* Countdown overlay — renders nothing when not in Countdown state *@
+
+@if (State == GameState.Countdown)
+{
+    <div class="overlay countdown-overlay" role="timer" aria-live="assertive" aria-atomic="true">
+        <span class="countdown-digit" aria-label="@Tick">@Tick</span>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public GameState State { get; set; }
+    [Parameter, EditorRequired] public int       Tick  { get; set; }
+
+    private int _lastTick;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != GameState.Countdown || Tick == _lastTick)
+            return;
+
+        _lastTick = Tick;
+        await Audio.PlayBlipAsync(Tick);
+        await Audio.VibrateDeviceAsync([80]);
+    }
+}

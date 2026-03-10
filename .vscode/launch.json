@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PoFace.Api",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "poface: prepare debug",
+      "program": "${workspaceFolder}/src/PoFace.Api/bin/Debug/net10.0/PoFace.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/PoFace.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:5001;http://localhost:5000"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Now listening on:\\s+(https?://\\S+)"
+      }
+    },
+    {
+      "name": "Edge: PoFace",
+      "type": "pwa-msedge",
+      "request": "launch",
+      "url": "https://localhost:5001",
+      "webRoot": "${workspaceFolder}/src/PoFace.Client"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "PoFace F5",
+      "configurations": [
+        "PoFace.Api",
+        "Edge: PoFace"
+      ],
+      "stopAll": true
+    }
+  ]
+}

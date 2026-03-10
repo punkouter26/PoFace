@@ -1,0 +1,39 @@
+@host = https://localhost:5001
+@userId = local-dev-user
+@displayName = Local Dev
+@sessionId = replace-me
+
+### Health
+GET {{host}}/health
+
+### Diagnostics
+GET {{host}}/api/diag
+X-Test-User-Id: {{userId}}
+X-Test-Display-Name: {{displayName}}
+
+### Current user
+GET {{host}}/api/auth/me
+X-Test-User-Id: {{userId}}
+X-Test-Display-Name: {{displayName}}
+
+### Start session
+POST {{host}}/api/sessions
+Content-Type: application/json
+X-Test-User-Id: {{userId}}
+X-Test-Display-Name: {{displayName}}
+
+{
+  "displayName": "{{displayName}}",
+  "deviceType": "desktop"
+}
+
+### Complete session
+POST {{host}}/api/sessions/{{sessionId}}/complete
+X-Test-User-Id: {{userId}}
+X-Test-Display-Name: {{displayName}}
+
+### Leaderboard
+GET {{host}}/api/leaderboard
+
+### Recap
+GET {{host}}/api/recap/{{sessionId}}

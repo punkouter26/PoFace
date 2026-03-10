@@ -1,0 +1,14 @@
+@inject NavigationManager Navigation
+@inject IConfiguration Configuration
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (Configuration["AuthMode"] == "PoTestAuth")
+            // PoTestAuth mode: MSAL is not registered, so NavigateToLogin() would throw.
+            // Navigate home and let the auth state provider retry on next page load.
+            Navigation.NavigateTo("/");
+        else
+            Navigation.NavigateToLogin("authentication/login");
+    }
+}

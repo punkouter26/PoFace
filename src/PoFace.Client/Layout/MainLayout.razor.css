@@ -1,0 +1,54 @@
+.terminal-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 0.75rem;
+}
+
+.terminal-header,
+.terminal-footer {
+    margin: 0.75rem;
+}
+
+.ascii-logo {
+    margin: 0;
+    letter-spacing: 0.08em;
+}
+
+.status-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.terminal-nav {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.terminal-nav a,
+.terminal-footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #008f00;
+    text-decoration: none;
+}
+
+.content {
+    max-width: 1080px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+    .terminal-header,
+    .terminal-footer {
+        margin: 0.5rem;
+    }
+}

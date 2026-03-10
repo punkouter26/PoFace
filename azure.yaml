@@ -1,0 +1,11 @@
+name: poface
+metadata:
+  template: poface-appservice
+services:
+  web:
+    project: ./src/PoFace.Api
+    language: dotnet
+    host: appservice
+infra:
+  provider: bicep
+  path: infra

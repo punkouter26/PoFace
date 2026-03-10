@@ -1,0 +1,19 @@
+@keyframes shutter-flash {
+    0% { background: rgba(255, 255, 255, 0.95); opacity: 1; }
+    100% { background: rgba(255, 255, 255, 0); opacity: 0; }
+}
+
+.shutter-flash {
+    animation: shutter-flash 150ms ease-out;
+}
+
+.arena-canvas {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.shutter-target {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}

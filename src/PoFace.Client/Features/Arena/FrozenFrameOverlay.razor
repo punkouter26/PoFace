@@ -1,0 +1,92 @@
+@using PoFace.Client.Services
+
+@* Shown during Analyzing: frozen capture + spinner.
+   Shown during ScoreReveal: frozen capture + animated score. *@
+
+@if (State is GameState.Analyzing or GameState.ScoreReveal)
+{
+    <div class="overlay frozen-frame-overlay" aria-live="polite" aria-atomic="true">
+        @* Frozen frame from last capture (imageUrl empty → placeholder) *@
+        @if (!string.IsNullOrWhiteSpace(LastResult?.ImageUrl))
+        {
+            <img src="@LastResult.ImageUrl"
+                 alt="Captured frame for round @LastResult.RoundNumber"
+                 class="frozen-frame-img" />
+        }
+        else
+        {
+            <div class="frozen-frame-placeholder" aria-hidden="true"></div>
+        }
+
+        @if (State == GameState.Analyzing)
+        {
+            <div class="analyzing-spinner" aria-label="Analyzing…">
+                <span class="spinner-ring" aria-hidden="true"></span>
+                <p>ANALYZING…</p>
+            </div>
+        }
+
+        @if (State == GameState.ScoreReveal && LastResult is not null)
+        {
+            <div class="score-reveal-panel" role="status">
+                <p class="emotion-label">@LastResult.TargetEmotion</p>
+                <p class="score-value" aria-label="Score @_displayScore out of 10">
+                    @_displayScore <span class="score-denom">/ 10</span>
+                </p>
+                @if (!LastResult.FaceDetected)
+                {
+                    <p class="face-hint">No face detected</p>
+                }
+                else if (!LastResult.HeadPoseValid)
+                {
+                    <p class="face-hint">Keep your head steady</p>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public GameState   State      { get; set; }
+    [Parameter]                 public RoundResult? LastResult { get; set; }
+
+    // Count-up animation: increments toward the real score over 500 ms.
+    private int _displayScore;
+    private System.Threading.Timer? _countUpTimer;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State == GameState.ScoreReveal && LastResult is not null)
+        {
+            _displayScore = 0;
+            var target    = LastResult.Score;
+            var steps     = target > 0 ? target : 0;
+            var interval  = steps > 0 ? 500 / steps : 500;
+
+            _countUpTimer?.Dispose();
+            _countUpTimer = new System.Threading.Timer(_ =>
+            {
+                if (_displayScore < target)
+                {
+                    _displayScore++;
+                    InvokeAsync(StateHasChanged);
+                }
+                else
+                {
+                    _countUpTimer?.Dispose();
+                }
+            }, null, interval, interval);
+        }
+        else
+        {
+            _countUpTimer?.Dispose();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        _countUpTimer?.Dispose();
+    }
+}
