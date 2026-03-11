@@ -23,16 +23,19 @@
         <li>Match the requested emotion before shutter.</li>
         <li>Keep your face centered and front-facing.</li>
         <li>Complete all 5 rounds for your total score.</li>
-        <li>If it is your best score, it is promoted to the leaderboard.</li>
+        <li>Signed-in runs can save high scores; anonymous runs stay local.</li>
     </ol>
+
+    <a class="btn btn-outline-success glow" href="/arena">Start Game</a>
 
     @if (_isAuthenticated)
     {
-        <a class="btn btn-outline-success glow" href="/arena">Start Game</a>
+        <p class="mt-3">Signed in. New personal bests can be promoted to the leaderboard.</p>
     }
     else
     {
-        <a class="btn btn-outline-success glow" href="authentication/login">Sign In To Start</a>
+        <p class="mt-3">Anonymous play is enabled. Sign in only if you want leaderboard saves.</p>
+        <a class="btn btn-outline-secondary mt-2" href="authentication/login">Sign In To Save High Scores</a>
     }
 </section>
 

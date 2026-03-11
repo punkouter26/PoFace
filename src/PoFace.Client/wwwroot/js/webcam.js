@@ -23,8 +23,21 @@
 
     const CANVAS_W = 640;
     const CANVAS_H = 480;
-    const QUALITY_NORMAL = 0.85;
-    const QUALITY_LOW_BW = 0.60;
+    const QUALITY_NORMAL = 0.92;
+    const QUALITY_LOW_BW = 0.75;
+
+    function mapCameraError(error) {
+        const name = error?.name ?? '';
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+            return 'permission-denied';
+        }
+
+        if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'NotReadableError') {
+            return 'camera-unavailable';
+        }
+
+        return 'error';
+    }
 
     /**
      * Request camera access and attach the stream to the given video element.
@@ -32,26 +45,50 @@
      */
     async function initCamera(videoElementId) {
         const video = document.getElementById(videoElementId);
-        if (!video) throw new Error(`Video element #${videoElementId} not found.`);
+        if (!video) return 'error';
+        if (!navigator.mediaDevices?.getUserMedia) return 'camera-unavailable';
 
-        _stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = _stream;
+        try {
+            _stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = _stream;
 
-        // Create the shared canvas once.
-        if (!_canvas) {
-            _canvas = document.createElement('canvas');
-            _canvas.width  = CANVAS_W;
-            _canvas.height = CANVAS_H;
-            _canvas.style.display = 'none';
-            document.body.appendChild(_canvas);
-            _ctx = _canvas.getContext('2d');
+            // Create the shared canvas once.
+            if (!_canvas) {
+                _canvas = document.createElement('canvas');
+                _canvas.width = CANVAS_W;
+                _canvas.height = CANVAS_H;
+                _canvas.style.display = 'none';
+                document.body.appendChild(_canvas);
+                _ctx = _canvas.getContext('2d');
+            }
+
+            await new Promise((resolve, reject) => {
+                video.onplaying = resolve;
+                video.onerror = reject;
+                video.play().catch(reject);
+            });
+
+            return 'ok';
+        } catch (error) {
+            releaseCamera();
+            return mapCameraError(error);
         }
+    }
 
-        await new Promise((resolve, reject) => {
-            video.onplaying = resolve;
-            video.onerror   = reject;
-            video.play().catch(reject);
-        });
+    /**
+     * Read the browser camera permission state when available.
+     * @returns {Promise<'granted' | 'prompt' | 'denied' | 'unknown' | 'camera-unavailable'>}
+     */
+    async function getCameraPermissionState() {
+        if (!navigator.mediaDevices?.getUserMedia) return 'camera-unavailable';
+        if (!navigator.permissions?.query) return 'unknown';
+
+        try {
+            const status = await navigator.permissions.query({ name: 'camera' });
+            return status?.state ?? 'unknown';
+        } catch {
+            return 'unknown';
+        }
     }
 
     /**
@@ -107,6 +144,7 @@
     // Assign to window so .NET JS interop can resolve the namespace synchronously.
     window.webcamInterop = {
         initCamera,
+        getCameraPermissionState,
         captureFrame,
         releaseCamera,
         flashShutter

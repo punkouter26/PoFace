@@ -1,0 +1,293 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "17496646306537712429"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev"
+    },
+    "sharedKeyVaultName": {
+      "type": "string",
+      "defaultValue": "kv-poshared"
+    },
+    "sharedKeyVaultResourceGroupName": {
+      "type": "string",
+      "defaultValue": "PoShared"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "defaultValue": "/subscriptions/bbb8dfbe-9169-432f-9b7a-fbf861b51037/resourceGroups/PoShared/providers/Microsoft.OperationalInsights/workspaces/PoShared-LogAnalytics"
+    },
+    "appServiceSkuName": {
+      "type": "string",
+      "defaultValue": "B1"
+    }
+  },
+  "variables": {
+    "$fxv#0": {
+      "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+      "contentVersion": "1.0.0.0",
+      "resources": [
+        {
+          "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+          "apiVersion": "2023-05-01",
+          "name": "[[concat(parameters('storageAccountName'), '/default')]",
+          "properties": {
+            "policy": {
+              "rules": [
+                {
+                  "name": "CaptureLifecycleGeneral",
+                  "enabled": true,
+                  "type": "Lifecycle",
+                  "definition": {
+                    "filters": {
+                      "blobTypes": [
+                        "blockBlob"
+                      ],
+                      "prefixMatch": [
+                        "poface-captures/"
+                      ]
+                    },
+                    "actions": {
+                      "baseBlob": {
+                        "tierToCool": {
+                          "daysAfterModificationGreaterThan": 180
+                        },
+                        "tierToArchive": {
+                          "daysAfterModificationGreaterThan": 365
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "NonBestDeleteAfter2Days",
+                  "enabled": true,
+                  "type": "Lifecycle",
+                  "definition": {
+                    "filters": {
+                      "blobTypes": [
+                        "blockBlob"
+                      ],
+                      "prefixMatch": [
+                        "poface-captures/non-best/"
+                      ]
+                    },
+                    "actions": {
+                      "baseBlob": {
+                        "delete": {
+                          "daysAfterModificationGreaterThan": 2
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "parameters": {
+        "storageAccountName": {
+          "type": "string",
+          "metadata": {
+            "description": "Target Azure Storage account name."
+          }
+        }
+      }
+    },
+    "normalizedEnvironment": "[toLower(replace(parameters('environmentName'), '-', ''))]",
+    "webAppName": "[format('poface-{0}-web', variables('normalizedEnvironment'))]",
+    "planName": "[format('poface-{0}-plan', variables('normalizedEnvironment'))]",
+    "storageAccountName": "[take(format('poface{0}sa', variables('normalizedEnvironment')), 24)]",
+    "appInsightsName": "[format('PoFace-{0}-appi', parameters('environmentName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('planName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('appServiceSkuName')]",
+        "tier": "Basic",
+        "size": "[parameters('appServiceSkuName')]",
+        "family": "B",
+        "capacity": 1
+      },
+      "kind": "linux",
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "allowBlobPublicAccess": true,
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2"
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[parameters('logAnalyticsWorkspaceId')]"
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-12-01",
+      "name": "[variables('webAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "linuxFxVersion": "DOTNETCORE|10.0",
+          "alwaysOn": true,
+          "http20Enabled": true,
+          "minTlsVersion": "1.2",
+          "appSettings": [
+            {
+              "name": "ASPNETCORE_ENVIRONMENT",
+              "value": "Production"
+            },
+            {
+              "name": "AzureStorage__AccountName",
+              "value": "[variables('storageAccountName')]"
+            },
+            {
+              "name": "KeyVault__Uri",
+              "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('sharedKeyVaultResourceGroupName')), 'Microsoft.KeyVault/vaults', parameters('sharedKeyVaultName')), '2023-07-01').vaultUri]"
+            },
+            {
+              "name": "ApplicationInsights__ConnectionString",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+        "[resourceId('Microsoft.Web/serverfarms', variables('planName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/managementPolicies",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
+      "properties": "[variables('$fxv#0').resources[0].properties]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "keyVaultAccess",
+      "resourceGroup": "[parameters('sharedKeyVaultResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "keyVaultName": {
+            "value": "[parameters('sharedKeyVaultName')]"
+          },
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2023-12-01', 'full').identity.principalId]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "9879958147408453277"
+            }
+          },
+          "parameters": {
+            "keyVaultName": {
+              "type": "string"
+            },
+            "principalId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "keyVaultSecretsUserRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('principalId'), variables('keyVaultSecretsUserRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal",
+                "roleDefinitionId": "[variables('keyVaultSecretsUserRoleId')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('webAppName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "appServiceName": {
+      "type": "string",
+      "value": "[variables('webAppName')]"
+    },
+    "appServiceUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2023-12-01').defaultHostName)]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageAccountName')]"
+    },
+    "sharedKeyVaultUri": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('sharedKeyVaultResourceGroupName')), 'Microsoft.KeyVault/vaults', parameters('sharedKeyVaultName')), '2023-07-01').vaultUri]"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 using MediatR;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Mvc;
+using PoFace.Api.Features.Recap;
 
 namespace PoFace.Api.Features.GameSession;
 
@@ -11,15 +11,15 @@ public static class GameSessionEndpoints
     {
         // POST /api/sessions — start a new session
         app.MapPost("/api/sessions", HandleStartSessionAsync)
-           .RequireAuthorization();
+              .AllowAnonymous();
 
         // POST /api/sessions/{id}/complete — mark session done, compute total
         app.MapPost("/api/sessions/{sessionId}/complete", HandleCompleteSessionAsync)
-           .RequireAuthorization();
+              .AllowAnonymous();
 
         // DELETE /api/sessions/{id} — discard an in-progress session
         app.MapDelete("/api/sessions/{sessionId}", HandleDiscardSessionAsync)
-           .RequireAuthorization();
+              .AllowAnonymous();
 
         return app;
     }
@@ -32,14 +32,15 @@ public static class GameSessionEndpoints
         HttpRequest request,
         CancellationToken cancellationToken)
     {
-        var userId      = GetUserId(user);
-        var displayName = user.FindFirstValue("name")
-                       ?? user.FindFirstValue(ClaimTypes.Name)
-                       ?? userId;
+        var isAuthenticatedUser = user.Identity?.IsAuthenticated == true;
+        var userId = isAuthenticatedUser ? GetUserId(user) : null;
+        var displayName = isAuthenticatedUser
+            ? user.FindFirstValue("name") ?? user.FindFirstValue(ClaimTypes.Name) ?? userId
+            : null;
         var deviceType  = DetectDeviceType(request);
 
         var result = await mediator.Send(
-            new StartSessionCommand(userId, displayName, deviceType), cancellationToken);
+            new StartSessionCommand(userId, displayName, deviceType, isAuthenticatedUser), cancellationToken);
 
         return Results.Created(
             $"/api/sessions/{result.SessionId}",
@@ -57,15 +58,17 @@ public static class GameSessionEndpoints
     private static async Task<IResult> HandleCompleteSessionAsync(
         string sessionId,
         IMediator mediator,
-        ClaimsPrincipal user,
+        IGameSessionLookupService sessionLookup,
         CancellationToken cancellationToken)
     {
-        var userId = GetUserId(user);
+        var session = await sessionLookup.GetBySessionIdAsync(sessionId, cancellationToken);
+        if (session is null)
+            return Results.NotFound();
 
         try
         {
             var result = await mediator.Send(
-                new CompleteSessionCommand(sessionId, userId), cancellationToken);
+                new CompleteSessionCommand(sessionId, session.UserId), cancellationToken);
 
             return Results.Ok(new
             {
@@ -85,13 +88,12 @@ public static class GameSessionEndpoints
 
     private static Task<IResult> HandleDiscardSessionAsync(
         string sessionId,
-        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         // T031 spec: "No storage writes occur" on discard.
         // In Phase 3 we simply return 204; cleanup is handled by TTL/expiry in Phase 4.
         _ = sessionId;
-        _ = user;
+        _ = cancellationToken;
         return Task.FromResult(Results.NoContent());
     }
 

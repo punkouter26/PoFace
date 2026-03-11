@@ -1,6 +1,7 @@
 @page "/leaderboard"
 @using System.Text.Json
-@inject HttpClient Http
+@using PoFace.Client.Services
+@inject ApiClient Api
 
 <PageTitle>Leaderboard – PoFace</PageTitle>
 
@@ -50,7 +51,7 @@ else
     {
         try
         {
-            var result = await Http.GetFromJsonAsync<LeaderboardResponse>("/api/leaderboard");
+            var result = await Api.GetLeaderboardAsync();
             if (result is not null)
             {
                 _year    = result.Year;
@@ -67,19 +68,4 @@ else
         }
     }
 
-    // ── DTOs (mirrors API response shape) ────────────────────────────────────
-
-    private sealed record LeaderboardResponse(
-        string Year,
-        List<LeaderboardEntryDto> Entries,
-        int Count);
-
-    private sealed record LeaderboardEntryDto(
-        int    Rank,
-        string UserId,
-        string DisplayName,
-        int    TotalScore,
-        string DeviceType,
-        string RecapUrl,
-        string AchievedAt);
 }

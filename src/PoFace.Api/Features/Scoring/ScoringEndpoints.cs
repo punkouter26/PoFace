@@ -1,6 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using PoFace.Api.Features.Recap;
 
 namespace PoFace.Api.Features.Scoring;
 
@@ -14,7 +14,7 @@ public static class ScoringEndpoints
         app.MapPost(
             "/api/sessions/{sessionId}/rounds/{roundNumber}/score",
             HandleScoreRoundAsync)
-           .RequireAuthorization()
+           .AllowAnonymous()
            .DisableAntiforgery(); // multipart handled manually; CSRF not applicable to API
 
         return app;
@@ -25,7 +25,7 @@ public static class ScoringEndpoints
         int roundNumber,
         IFormFile? image,
         IMediator mediator,
-        ClaimsPrincipal user,
+        IGameSessionLookupService sessionLookup,
         CancellationToken cancellationToken)
     {
         // ── Validation ────────────────────────────────────────────────────────
@@ -61,16 +61,15 @@ public static class ScoringEndpoints
             imageBytes = ms.ToArray();
         }
 
-        // Determine userId from claims (test auth injects NameIdentifier header).
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)
-                  ?? user.FindFirstValue("sub")
-                  ?? "unknown";
+        var session = await sessionLookup.GetBySessionIdAsync(sessionId, cancellationToken);
+        if (session is null)
+            return Results.NotFound();
 
         // Derive target emotion from round number (canonical order per FR-009).
         var targetEmotion = RoundEmotions.ForRound(roundNumber);
 
         var command = new ScoreRoundCommand(
-            sessionId, userId, roundNumber, targetEmotion, imageBytes);
+            sessionId, session.UserId, roundNumber, targetEmotion, imageBytes);
 
         var result = await mediator.Send(command, cancellationToken);
 

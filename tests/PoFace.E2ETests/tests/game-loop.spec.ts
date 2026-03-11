@@ -8,10 +8,10 @@
  *   physical camera in CI.
  * • The API is called over the real test-server HTTP stack (testcontainers in
  *   the ASP.NET pipeline, BASE_URL set in playwright.config.ts).
- * • Auth is injected via X-Test-User-Id header (see authFixture.ts).
+ * • Gameplay is anonymous by default, so no auth bootstrap is required.
  */
 
-import { test, expect } from '../fixtures/authFixture';
+import { test, expect } from '@playwright/test';
 
 test.describe('Arena game loop', () => {
 

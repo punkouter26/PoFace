@@ -42,19 +42,22 @@ public sealed class DiagnosticsQueryHandler : IRequestHandler<DiagnosticsQuery, 
     private readonly IFaceAnalysisService _faceAnalysis;
     private readonly IConfiguration _configuration;
     private readonly ConfigMaskingService _masking;
+    private readonly IHostEnvironment _environment;
 
     public DiagnosticsQueryHandler(
         BlobServiceClient blobClient,
         TableServiceClient tableClient,
         IFaceAnalysisService faceAnalysis,
         IConfiguration configuration,
-        ConfigMaskingService masking)
+        ConfigMaskingService masking,
+        IHostEnvironment environment)
     {
         _blobClient = blobClient;
         _tableClient = tableClient;
         _faceAnalysis = faceAnalysis;
         _configuration = configuration;
         _masking = masking;
+        _environment = environment;
     }
 
     public async Task<DiagnosticsReport> Handle(DiagnosticsQuery request, CancellationToken cancellationToken)
@@ -69,10 +72,7 @@ public sealed class DiagnosticsQueryHandler : IRequestHandler<DiagnosticsQuery, 
             await _tableClient.GetPropertiesAsync(cancellationToken: cancellationToken);
         });
 
-        var face = await ProbeAsync(async () =>
-        {
-            _ = await _faceAnalysis.AnalyzeFrameAsync(TinyJpeg, "Happiness", cancellationToken);
-        });
+        var face = await ProbeFaceAsync(cancellationToken);
 
         var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "0.0.0";
         var region = Environment.GetEnvironmentVariable("WEBSITE_REGION") ?? "local";
@@ -103,5 +103,25 @@ public sealed class DiagnosticsQueryHandler : IRequestHandler<DiagnosticsQuery, 
         {
             return new ServiceStatus("ERROR", ex.Message);
         }
+    }
+
+    private async Task<ServiceStatus> ProbeFaceAsync(CancellationToken cancellationToken)
+    {
+        if (!_environment.IsProduction() && !_environment.IsStaging())
+        {
+            var faceEndpoint = _configuration["AzureFace:Endpoint"] ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(faceEndpoint) ||
+                faceEndpoint.Contains("placeholder", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ServiceStatus("OK", "Using local stub face analysis.");
+            }
+
+            return new ServiceStatus("OK", "Active Face API probe skipped in Development to avoid noisy 400 responses.");
+        }
+
+        return await ProbeAsync(async () =>
+        {
+            _ = await _faceAnalysis.AnalyzeFrameAsync(TinyJpeg, "Happiness", cancellationToken);
+        });
     }
 }

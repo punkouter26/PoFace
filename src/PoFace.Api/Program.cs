@@ -1,8 +1,8 @@
-using Azure;
-using Azure.AI.Vision.Face;
 using Azure.Data.Tables;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Storage.Blobs;
+using Google.Apis.Auth.OAuth2;
+using Google.Cloud.Vision.V1;
 using Microsoft.Identity.Web;
 using PoFace.Api.Features.Auth;
 using PoFace.Api.Features.Diagnostics;
@@ -30,19 +30,24 @@ builder.AddPoFaceSerilog();
 // ── OpenAPI ───────────────────────────────────────────────────────────────────
 builder.Services.AddOpenApi();
 
-// ── Azure Face API ────────────────────────────────────────────────────────────
-builder.Services.AddSingleton(_ =>
-    new FaceClient(
-        new Uri(builder.Configuration["AzureFace:Endpoint"] ?? "https://placeholder.cognitiveservices.azure.com"),
-        new AzureKeyCredential(builder.Configuration["AzureFace:ApiKey"] ?? "placeholder")));
-
-var faceEndpoint = builder.Configuration["AzureFace:Endpoint"] ?? string.Empty;
-if (!builder.Environment.IsProduction() && !builder.Environment.IsStaging() &&
-    (string.IsNullOrWhiteSpace(faceEndpoint) ||
-     faceEndpoint.Contains("placeholder", StringComparison.OrdinalIgnoreCase)))
-    builder.Services.AddScoped<IFaceAnalysisService, StubFaceAnalysisService>();
+// ── Google Cloud Vision API ─────────────────────────────────────────────────────────
+var visionCredentialJson = builder.Configuration["GoogleVision:CredentialJson"] ?? string.Empty;
+if (!string.IsNullOrWhiteSpace(visionCredentialJson))
+{
+    builder.Services.AddSingleton(_ =>
+    {
+        using var stream = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(visionCredentialJson));
+        var googleCredential = ServiceAccountCredential.FromServiceAccountData(stream)
+            .ToGoogleCredential()
+            .CreateScoped(ImageAnnotatorClient.DefaultScopes);
+        return new ImageAnnotatorClientBuilder { GoogleCredential = googleCredential }.Build();
+    });
+    builder.Services.AddScoped<IFaceAnalysisService, GoogleVisionFaceAnalysisService>();
+}
 else
-    builder.Services.AddScoped<IFaceAnalysisService, FaceAnalysisService>();
+{
+    builder.Services.AddScoped<IFaceAnalysisService, StubFaceAnalysisService>();
+}
 
 // ── Azure Storage ─────────────────────────────────────────────────────────────
 var storageConnectionString = builder.Configuration.GetRequiredStorageConnectionString(builder.Environment);
@@ -69,8 +74,9 @@ builder.Services.AddMediatR(cfg =>
 // AddPoFaceMetrics registers the custom PoFace meter on the same builder.
 var openTelemetry = builder.Services.AddOpenTelemetry();
 
-if (!string.IsNullOrWhiteSpace(builder.Configuration.GetAppInsightsConnectionString()))
-    openTelemetry.UseAzureMonitor();
+var appInsightsCs = builder.Configuration.GetAppInsightsConnectionString();
+if (!string.IsNullOrWhiteSpace(appInsightsCs))
+    openTelemetry.UseAzureMonitor(o => o.ConnectionString = appInsightsCs);
 
 openTelemetry.AddPoFaceMetrics();
 
@@ -123,6 +129,9 @@ app.UseExceptionHandler();
 if (!app.Environment.IsProduction())
     app.UseDeveloperExceptionPage();
 
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
+
 app.UseSerilogRequestLogging();
 app.UseCors("PoFaceClient");
 
@@ -136,7 +145,6 @@ app.MapScalarApiReference("/scalar")
     .AllowAnonymous();
 
 // ── Feature Endpoints ────────────────────────────────────────────────────────
-app.MapDevLoginEndpoint();
 app.MapAuthEndpoints();
 app.MapGameSessionEndpoints();
 app.MapScoringEndpoints();
@@ -177,6 +185,9 @@ static async Task<IResult> HandleHealthAsync(MediatR.ISender sender, Cancellatio
         },
         statusCode: healthy ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable);
 }
+
+app.MapFallbackToFile("index.html")
+    .AllowAnonymous();
 
 app.Run();
 

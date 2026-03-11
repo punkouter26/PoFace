@@ -19,15 +19,27 @@ public sealed record ScoreRoundCommand(
 
 /// <summary>Serialized directly as the HTTP 200 JSON response body.</summary>
 public sealed record ScoreRoundResult(
-    int RoundNumber,
-    string TargetEmotion,
-    int Score,
-    double RawConfidence,
-    bool HeadPoseValid,
+    int     RoundNumber,
+    string  TargetEmotion,
+    int     Score,
+    double  RawConfidence,
+    string  QualityLabel,
+    bool    HeadPoseValid,
     double? HeadPoseYaw,
     double? HeadPosePitch,
-    bool FaceDetected,
-    string ImageUrl
+    double? HeadPoseRoll,
+    bool    FaceDetected,
+    string  ImageUrl,
+    // ── Google Cloud Vision attributes ───────────────────────────────────
+    double  DetectionConfidence,
+    double  LandmarkingConfidence,
+    string  HeadwearLikelihood,
+    string  JoyLikelihood,
+    string  SorrowLikelihood,
+    string  AngerLikelihood,
+    string  SurpriseLikelihood,
+    string  BlurLevel,
+    string  ExposureLevel
 );
 
 // ── Table Entity ─────────────────────────────────────────────────────────────

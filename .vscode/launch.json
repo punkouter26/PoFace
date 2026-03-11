@@ -18,23 +18,7 @@
         "action": "openExternally",
         "pattern": "Now listening on:\\s+(https?://\\S+)"
       }
-    },
-    {
-      "name": "Edge: PoFace",
-      "type": "pwa-msedge",
-      "request": "launch",
-      "url": "https://localhost:5001",
-      "webRoot": "${workspaceFolder}/src/PoFace.Client"
     }
   ],
-  "compounds": [
-    {
-      "name": "PoFace F5",
-      "configurations": [
-        "PoFace.Api",
-        "Edge: PoFace"
-      ],
-      "stopAll": true
-    }
-  ]
+  "compounds": []
 }

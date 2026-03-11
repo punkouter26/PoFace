@@ -125,8 +125,10 @@ public sealed class GameOrchestratorTests
         var states = new List<GameState>();
         sut.StateChanged += () => states.Add(sut.State);
 
-        // Cancel quickly — fires before the 2 s Task.Delay in GetReady.
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        // Cancel after 1 500 ms — long enough for the HTTP stub to respond and the
+        // GetReady state to be set synchronously before Task.Delay(2 000, ct) fires,
+        // but well within the 2 s GetReady delay so cancellation terminates early.
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1_500));
         try { await sut.StartGameAsync(cts.Token); }
         catch (OperationCanceledException) { /* expected */ }
 

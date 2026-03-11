@@ -1,0 +1,83 @@
+name: Deploy PoFace to Azure
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  AZURE_RESOURCE_GROUP: 'PoFace'
+  AZURE_LOCATION: 'westus2'
+  ENVIRONMENT_NAME: 'dev'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create resource group
+        run: |
+          az group create \
+            --name ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location ${{ env.AZURE_LOCATION }} \
+            --output none
+
+      - name: Deploy infrastructure
+        run: |
+          az deployment group create \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --template-file infra/main.bicep \
+            --parameters environmentName=${{ env.ENVIRONMENT_NAME }} \
+            --output none
+
+      - name: Get App Service name
+        id: get-app-name
+        run: |
+          APP_NAME=$(az deployment group show \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name main \
+            --query properties.outputs.appServiceName.value \
+            -o tsv)
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "App Service: $APP_NAME"
+
+      - name: Build and publish
+        run: |
+          dotnet publish src/PoFace.Api/PoFace.Api.csproj \
+            --configuration Release \
+            --output ./publish \
+            --no-self-contained
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ steps.get-app-name.outputs.app_name }}
+          package: ./publish
+
+      - name: Verify deployment health
+        run: |
+          APP_URL=$(az deployment group show \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name main \
+            --query properties.outputs.appServiceUrl.value \
+            -o tsv)
+          echo "App URL: $APP_URL"
+          sleep 30
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/health")
+          echo "Health check status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Health check returned $STATUS"
+          fi

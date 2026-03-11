@@ -30,8 +30,6 @@ public sealed class GameSessionEndpointTests : IClassFixture<AzuriteFixture>
     {
         await using var factory = CreateFactory();
         var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Add("X-Test-User-Id", "sess-test-start-001");
-        client.DefaultRequestHeaders.Add("X-Test-Display-Name", "StartUser");
 
         var response = await client.PostAsync("/api/sessions", null);
 
@@ -43,6 +41,35 @@ public sealed class GameSessionEndpointTests : IClassFixture<AzuriteFixture>
         body.Rounds.Should().HaveCount(5);
         body.Rounds.Select(r => r.RoundNumber).Should().Equal(1, 2, 3, 4, 5);
         body.Rounds.Select(r => r.TargetEmotion).Should().Equal(CanonicalEmotions);
+    }
+
+    [Fact]
+    public async Task CompleteSession_AnonymousPlayer_DoesNotCreatePersonalBest()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient();
+
+        var startResp = await client.PostAsync("/api/sessions", null);
+        startResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var start = await startResp.Content.ReadFromJsonAsync<StartSessionDto>();
+        start.Should().NotBeNull();
+
+        for (int round = 1; round <= 5; round++)
+        {
+            using var content = BuildJpegContent();
+            var scoreResp = await client.PostAsync(
+                $"/api/sessions/{start!.SessionId}/rounds/{round}/score", content);
+            scoreResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        var completeResp = await client.PostAsync(
+            $"/api/sessions/{start!.SessionId}/complete", null);
+        completeResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var result = await completeResp.Content.ReadFromJsonAsync<CompleteSessionDto>();
+        result.Should().NotBeNull();
+        result!.IsPersonalBest.Should().BeFalse();
+        result.RecapUrl.Should().Be($"/recap/{start.SessionId}");
     }
 
     // ── Full lifecycle ────────────────────────────────────────────────────────

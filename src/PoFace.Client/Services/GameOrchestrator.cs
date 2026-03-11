@@ -21,12 +21,27 @@ public enum GameState
 
 /// <summary>Per-round result stored inside the orchestrator.</summary>
 public sealed record RoundResult(
-    int    RoundNumber,
-    string TargetEmotion,
-    int    Score,
-    string ImageUrl,
-    bool   FaceDetected,
-    bool   HeadPoseValid);
+    int     RoundNumber,
+    string  TargetEmotion,
+    int     Score,
+    string  ImageUrl,
+    bool    FaceDetected,
+    bool    HeadPoseValid,
+    double  RawConfidence,
+    string  QualityLabel,
+    double? HeadPoseYaw,
+    double? HeadPosePitch,
+    double? HeadPoseRoll,
+    // Google Cloud Vision attributes
+    double  DetectionConfidence,
+    double  LandmarkingConfidence,
+    string  HeadwearLikelihood,
+    string  JoyLikelihood,
+    string  SorrowLikelihood,
+    string  AngerLikelihood,
+    string  SurpriseLikelihood,
+    string  BlurLevel,
+    string  ExposureLevel);
 
 /// <summary>
 /// Drives the 5-round game state machine for the Arena page.
@@ -112,8 +127,9 @@ public sealed class GameOrchestrator : IAsyncDisposable
         catch
         {
             // Network / server failure → score 0 so the game can finish.
-            roundResult = new ScoreRoundResponse(CurrentRound, CurrentTargetEmotion ?? "", 0, 0,
-                false, null, null, false, "");
+            roundResult = new ScoreRoundResponse(CurrentRound, CurrentTargetEmotion ?? "", 0, 0, "Unknown",
+                false, null, null, null, false, "",
+                0, 0, "", "", "", "", "", "", "");
         }
 
         if (roundResult.Score >= 8)
@@ -125,7 +141,21 @@ public sealed class GameOrchestrator : IAsyncDisposable
             roundResult.Score,
             roundResult.ImageUrl,
             roundResult.FaceDetected,
-            roundResult.HeadPoseValid));
+            roundResult.HeadPoseValid,
+            roundResult.RawConfidence,
+            roundResult.QualityLabel,
+            roundResult.HeadPoseYaw,
+            roundResult.HeadPosePitch,
+            roundResult.HeadPoseRoll,
+            roundResult.DetectionConfidence,
+            roundResult.LandmarkingConfidence,
+            roundResult.HeadwearLikelihood,
+            roundResult.JoyLikelihood,
+            roundResult.SorrowLikelihood,
+            roundResult.AngerLikelihood,
+            roundResult.SurpriseLikelihood,
+            roundResult.BlurLevel,
+            roundResult.ExposureLevel));
 
         await TransitionAsync(GameState.ScoreReveal);
         await Task.Delay(2_000, ct);

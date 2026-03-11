@@ -1,12 +1,15 @@
-using Azure.AI.Vision.Face;
-using Azure;
-using PoFace.Api.Features.Scoring;
+using System.Security.Cryptography;
+using Google.Cloud.Vision.V1;
+using Google.Apis.Auth.OAuth2;
+using Grpc.Auth;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace PoFace.Api.Features.Scoring;
 
 // ── Interface ─────────────────────────────────────────────────────────────────
 
-/// <summary>Abstracts the Azure Face API call so <see cref="ScoreRoundHandler"/> can be unit-tested.</summary>
+/// <summary>Abstracts the face analysis API call so <see cref="ScoreRoundHandler"/> can be unit-tested.</summary>
 public interface IFaceAnalysisService
 {
     Task<AnalysisResult> AnalyzeFrameAsync(
@@ -16,122 +19,192 @@ public interface IFaceAnalysisService
 // ── Implementation ────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Calls Azure Face API (Detection01 model) to detect head pose and face quality.
+/// Calls Google Cloud Vision API (FACE_DETECTION feature) to detect emotion, head pose,
+/// and image quality attributes.
 ///
-/// NOTE — Emotion detection requires Azure Face API "Limited Access" approval.
-/// See: https://learn.microsoft.com/en-us/azure/ai-services/face/overview#limited-access
-/// Until approved this service falls back to <see cref="QualityForRecognition"/> as a
-/// confidence proxy so scoring is always non-zero for detected faces.
-/// Replace <see cref="MapQualityToConfidence"/> with real emotion logic once approved.
+/// Emotion mapping:
+///   Happiness → joyLikelihood
+///   Surprise  → surpriseLikelihood
+///   Anger     → angerLikelihood
+///   Sadness   → sorrowLikelihood
+///   Fear      → max(sorrow, surprise) as proxy (no direct Fear in Vision API)
 /// </summary>
-public sealed class FaceAnalysisService : IFaceAnalysisService
+public sealed class GoogleVisionFaceAnalysisService : IFaceAnalysisService
 {
-    private readonly FaceClient _faceClient;
+    private readonly ImageAnnotatorClient _client;
+    private readonly ILogger<GoogleVisionFaceAnalysisService> _logger;
 
-    public FaceAnalysisService(FaceClient faceClient) => _faceClient = faceClient;
+    public GoogleVisionFaceAnalysisService(ImageAnnotatorClient client, ILogger<GoogleVisionFaceAnalysisService>? logger = null)
+    {
+        _client = client;
+        _logger = logger ?? NullLogger<GoogleVisionFaceAnalysisService>.Instance;
+    }
 
     public async Task<AnalysisResult> AnalyzeFrameAsync(
         byte[] imageBytes, string targetEmotion, CancellationToken cancellationToken = default)
     {
-        Response<IReadOnlyList<FaceDetectionResult>> response;
+        var payloadHash = ComputePayloadHash(imageBytes);
+        _logger.LogInformation(
+            "Vision API request -> TargetEmotion={TargetEmotion}, PayloadBytes={PayloadBytes}, PayloadSha256={PayloadSha256}",
+            targetEmotion, imageBytes.Length, payloadHash);
 
+        Image image;
         try
         {
-            response = await _faceClient.DetectAsync(
-                BinaryData.FromBytes(imageBytes),
-                FaceDetectionModel.Detection01,
-                FaceRecognitionModel.Recognition04,
-                returnFaceId: false,
-                returnFaceAttributes: new[]
-                {
-                    FaceAttributeType.HeadPose,
-                    FaceAttributeType.QualityForRecognition
-                },
-                returnFaceLandmarks: false,
-                returnRecognitionModel: false,
-                faceIdTimeToLive: null,
-                cancellationToken);
+            image = Image.FromBytes(imageBytes);
         }
-        catch (RequestFailedException ex) when (ex.Status == 400)
+        catch (Exception ex)
         {
-            // Corrupt / non-JPEG data supplied; return no-face result.
-            return new AnalysisResult
-            {
-                FaceDetected = false,
-                EmotionLabel = targetEmotion,
-                TargetEmotionConfidence = 0,
-                HeadPoseYaw = 0,
-                HeadPosePitch = 0,
-                HeadPoseValid = false,
-                Score = 0
-            };
+            _logger.LogWarning(ex,
+                "Vision API request <- Invalid image data for TargetEmotion={TargetEmotion}. Returning score 0.",
+                targetEmotion);
+            return NoFaceResult(targetEmotion);
         }
 
-        var faces = response.Value;
+        IReadOnlyList<FaceAnnotation> faces;
+        try
+        {
+            faces = await _client.DetectFacesAsync(image,
+                callSettings: Google.Api.Gax.Grpc.CallSettings.FromCancellationToken(cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Vision API request <- Exception for TargetEmotion={TargetEmotion}, PayloadSha256={PayloadSha256}. Returning score 0.",
+                targetEmotion, payloadHash);
+            return NoFaceResult(targetEmotion);
+        }
+
+        _logger.LogInformation(
+            "Vision API response <- TargetEmotion={TargetEmotion}, PayloadSha256={PayloadSha256}, FaceCount={FaceCount}",
+            targetEmotion, payloadHash, faces.Count);
 
         if (faces.Count == 0)
         {
-            return new AnalysisResult
-            {
-                FaceDetected = false,
-                EmotionLabel = targetEmotion,
-                TargetEmotionConfidence = 0,
-                HeadPoseYaw = 0,
-                HeadPosePitch = 0,
-                HeadPoseValid = false,
-                Score = 0
-            };
+            _logger.LogInformation(
+                "Score calculation -> No face detected. TargetEmotion={TargetEmotion}, FinalRoundScore=0",
+                targetEmotion);
+            return NoFaceResult(targetEmotion);
         }
 
-        // Use the largest face (first by API convention when no ID requested).
-        var face = faces[0];
-        var headPose = face.FaceAttributes?.HeadPose;
+        // Use the highest-confidence face.
+        var face = faces.OrderByDescending(f => f.DetectionConfidence).First();
 
-        double yaw   = headPose?.Yaw   ?? 0;
-        double pitch = headPose?.Pitch ?? 0;
+        double yaw   = face.PanAngle;
+        double pitch = face.TiltAngle;
+        double roll  = face.RollAngle;
         bool   valid = HeadPoseValidator.Validate(yaw, pitch);
 
-        double confidence = MapQualityToConfidence(face.FaceAttributes?.QualityForRecognition);
-        int    score      = valid ? (int)Math.Round(confidence * 10) : 0;
+        double emotionConfidence = GetEmotionConfidence(face, targetEmotion);
+        string emotionLabel      = targetEmotion;
+        var rawScore             = (int)Math.Round(emotionConfidence * 10);
+        int score                = valid ? rawScore : 0;
+
+        string blurLevel     = LikelihoodLabel(face.BlurredLikelihood);
+        string exposureLevel = LikelihoodLabel(face.UnderExposedLikelihood) == "None" ? "GoodExposure" : "UnderExposure";
+
+        _logger.LogInformation(
+            "Score calculation -> TargetEmotion={TargetEmotion}, EmotionConfidence={EmotionConfidence:0.00}, HeadPoseYaw={HeadPoseYaw:0.0}, HeadPosePitch={HeadPosePitch:0.0}, HeadPoseValid={HeadPoseValid}, DetectionConfidence={DetectionConfidence:0.000}, RawScore={RawScore}, FinalRoundScore={FinalRoundScore}",
+            targetEmotion, emotionConfidence, yaw, pitch, valid, face.DetectionConfidence, rawScore, score);
 
         return new AnalysisResult
         {
-            FaceDetected              = true,
-            EmotionLabel              = targetEmotion,
-            TargetEmotionConfidence   = confidence,
-            HeadPoseYaw               = yaw,
-            HeadPosePitch             = pitch,
-            HeadPoseValid             = valid,
-            Score                     = score
+            FaceDetected            = true,
+            EmotionLabel            = emotionLabel,
+            TargetEmotionConfidence = emotionConfidence,
+            QualityLabel            = blurLevel == "None" ? "High" : "Low",
+            HeadPoseYaw             = yaw,
+            HeadPosePitch           = pitch,
+            HeadPoseRoll            = roll,
+            HeadPoseValid           = valid,
+            Score                   = score,
+            DetectionConfidence     = face.DetectionConfidence,
+            LandmarkingConfidence   = face.LandmarkingConfidence,
+            HeadwearLikelihood      = LikelihoodLabel(face.HeadwearLikelihood),
+            JoyLikelihood           = LikelihoodLabel(face.JoyLikelihood),
+            SorrowLikelihood        = LikelihoodLabel(face.SorrowLikelihood),
+            AngerLikelihood         = LikelihoodLabel(face.AngerLikelihood),
+            SurpriseLikelihood      = LikelihoodLabel(face.SurpriseLikelihood),
+            BlurLevel               = blurLevel,
+            ExposureLevel           = exposureLevel,
         };
     }
 
-    // ── Limited-Access fallback ───────────────────────────────────────────────
-    //
-    // Maps face recognition quality to a representative confidence score.
-    // Replace with real emotion property access once Limited Access is granted:
-    //   var emotionConfidence = face.FaceAttributes?.Emotion?.<TargetProperty>;
-    //
-    private static double MapQualityToConfidence(QualityForRecognition? quality)
-        => quality switch
+    // ── Emotion mapping ───────────────────────────────────────────────────────
+
+    private static double GetEmotionConfidence(FaceAnnotation face, string targetEmotion)
+        => targetEmotion.ToLowerInvariant() switch
         {
-            var q when q == QualityForRecognition.High   => 0.80,
-            var q when q == QualityForRecognition.Medium => 0.50,
-            var q when q == QualityForRecognition.Low    => 0.20,
-            _                                            => 0.0
+            "happiness" => LikelihoodToConfidence(face.JoyLikelihood),
+            "surprise"  => LikelihoodToConfidence(face.SurpriseLikelihood),
+            "anger"     => LikelihoodToConfidence(face.AngerLikelihood),
+            "sadness"   => LikelihoodToConfidence(face.SorrowLikelihood),
+            // Fear has no direct match: use max(sorrow, surprise) as proxy.
+            "fear"      => Math.Max(
+                               LikelihoodToConfidence(face.SorrowLikelihood),
+                               LikelihoodToConfidence(face.SurpriseLikelihood)),
+            _           => 0.0
         };
+
+    /// <summary>Maps Google Likelihood enum (1–5) to a [0–1] confidence value.</summary>
+    private static double LikelihoodToConfidence(Likelihood likelihood)
+        => likelihood switch
+        {
+            Likelihood.VeryLikely   => 1.00,
+            Likelihood.Likely       => 0.75,
+            Likelihood.Possible     => 0.45,
+            Likelihood.Unlikely     => 0.15,
+            Likelihood.VeryUnlikely => 0.0,
+            _                       => 0.0   // UNKNOWN
+        };
+
+    private static string LikelihoodLabel(Likelihood likelihood)
+        => likelihood switch
+        {
+            Likelihood.VeryLikely   => "High",
+            Likelihood.Likely       => "Medium",
+            Likelihood.Possible     => "Low",
+            _                       => "None"
+        };
+
+    private static AnalysisResult NoFaceResult(string targetEmotion) => new()
+    {
+        FaceDetected            = false,
+        EmotionLabel            = targetEmotion,
+        TargetEmotionConfidence = 0,
+        HeadPoseYaw             = 0,
+        HeadPosePitch           = 0,
+        HeadPoseValid           = false,
+        Score                   = 0
+    };
+
+    private static string ComputePayloadHash(byte[] bytes)
+    {
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash)[..12];
+    }
 }
 
 /// <summary>
-/// Dev/test stub used when <c>AzureFace:Endpoint</c> is absent or set to the
-/// placeholder value. Returns a deterministic no-face result without making
-/// any outbound HTTP calls, keeping local development and E2E tests self-contained.
+/// Dev/test stub used when <c>GoogleVision:CredentialJson</c> is absent.
+/// Returns a deterministic no-face result without making any outbound HTTP calls.
 /// </summary>
 internal sealed class StubFaceAnalysisService : IFaceAnalysisService
 {
+    private readonly ILogger<StubFaceAnalysisService> _logger;
+
+    public StubFaceAnalysisService(ILogger<StubFaceAnalysisService>? logger = null)
+        => _logger = logger ?? NullLogger<StubFaceAnalysisService>.Instance;
+
     public Task<AnalysisResult> AnalyzeFrameAsync(
         byte[] imageBytes, string targetEmotion, CancellationToken cancellationToken = default)
-        => Task.FromResult(new AnalysisResult
+    {
+        _logger.LogInformation(
+            "Face analysis stub in use -> TargetEmotion={TargetEmotion}, PayloadBytes={PayloadBytes}. Returning deterministic score 0.",
+            targetEmotion,
+            imageBytes.Length);
+
+        return Task.FromResult(new AnalysisResult
         {
             FaceDetected            = false,
             EmotionLabel            = targetEmotion,
@@ -141,4 +214,5 @@ internal sealed class StubFaceAnalysisService : IFaceAnalysisService
             HeadPoseValid           = false,
             Score                   = 0
         });
+    }
 }

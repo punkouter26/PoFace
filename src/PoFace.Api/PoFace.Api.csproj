@@ -2,11 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+    <UserSecretsId>poface-api-dev</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.AI.Vision.Face" />
+    <ProjectReference Include="..\PoFace.Client\PoFace.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
+    <PackageReference Include="Google.Cloud.Vision.V1" />
     <PackageReference Include="Azure.Data.Tables" />
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="Azure.Security.KeyVault.Secrets" />

@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PoFace.Api.Infrastructure.Storage;
 using PoFace.Api.Infrastructure.Telemetry;
 
@@ -13,20 +15,31 @@ public sealed class ScoreRoundHandler : IRequestHandler<ScoreRoundCommand, Score
     private readonly IFaceAnalysisService _faceAnalysis;
     private readonly IBlobStorageService _blobStorage;
     private readonly ITableStorageService _tableStorage;
+    private readonly ILogger<ScoreRoundHandler> _logger;
 
     public ScoreRoundHandler(
         IFaceAnalysisService faceAnalysis,
         IBlobStorageService blobStorage,
-        ITableStorageService tableStorage)
+        ITableStorageService tableStorage,
+        ILogger<ScoreRoundHandler>? logger = null)
     {
         _faceAnalysis = faceAnalysis;
         _blobStorage  = blobStorage;
         _tableStorage = tableStorage;
+        _logger = logger ?? NullLogger<ScoreRoundHandler>.Instance;
     }
 
     public async Task<ScoreRoundResult> Handle(
         ScoreRoundCommand command, CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "Round scoring start -> SessionId={SessionId}, RoundNumber={RoundNumber}, UserId={UserId}, TargetEmotion={TargetEmotion}, PayloadBytes={PayloadBytes}",
+            command.SessionId,
+            command.RoundNumber,
+            command.UserId,
+            command.TargetEmotion,
+            command.ImageBytes.Length);
+
         // 1. Analyse the captured frame via Azure Face API.
         var analysis = await _faceAnalysis.AnalyzeFrameAsync(
             command.ImageBytes, command.TargetEmotion, cancellationToken);
@@ -61,17 +74,41 @@ public sealed class ScoreRoundHandler : IRequestHandler<ScoreRoundCommand, Score
             command.TargetEmotion.ToLowerInvariant(),
             analysis.TargetEmotionConfidence);
 
+        _logger.LogInformation(
+            "Round scoring complete -> SessionId={SessionId}, RoundNumber={RoundNumber}, TargetEmotion={TargetEmotion}, FaceDetected={FaceDetected}, RawConfidence={RawConfidence}, HeadPoseValid={HeadPoseValid}, HeadPoseYaw={HeadPoseYaw}, HeadPosePitch={HeadPosePitch}, FinalRoundScore={FinalRoundScore}, ImageUrl={ImageUrl}",
+            command.SessionId,
+            command.RoundNumber,
+            command.TargetEmotion,
+            analysis.FaceDetected,
+            analysis.TargetEmotionConfidence,
+            analysis.HeadPoseValid,
+            analysis.HeadPoseYaw,
+            analysis.HeadPosePitch,
+            analysis.Score,
+            imageUrl);
+
         // 5. Build the HTTP response record.
         return new ScoreRoundResult(
-            RoundNumber   : command.RoundNumber,
-            TargetEmotion : command.TargetEmotion,
-            Score         : analysis.Score,
-            RawConfidence : analysis.TargetEmotionConfidence,
-            HeadPoseValid : analysis.HeadPoseValid,
-            HeadPoseYaw   : analysis.FaceDetected ? analysis.HeadPoseYaw   : null,
-            HeadPosePitch : analysis.FaceDetected ? analysis.HeadPosePitch : null,
-            FaceDetected  : analysis.FaceDetected,
-            ImageUrl      : imageUrl
+            RoundNumber           : command.RoundNumber,
+            TargetEmotion         : command.TargetEmotion,
+            Score                 : analysis.Score,
+            RawConfidence         : analysis.TargetEmotionConfidence,
+            QualityLabel          : analysis.QualityLabel,
+            HeadPoseValid         : analysis.HeadPoseValid,
+            HeadPoseYaw           : analysis.FaceDetected ? analysis.HeadPoseYaw   : null,
+            HeadPosePitch         : analysis.FaceDetected ? analysis.HeadPosePitch : null,
+            HeadPoseRoll          : analysis.FaceDetected ? analysis.HeadPoseRoll  : null,
+            FaceDetected          : analysis.FaceDetected,
+            ImageUrl              : imageUrl,
+            DetectionConfidence   : analysis.DetectionConfidence,
+            LandmarkingConfidence : analysis.LandmarkingConfidence,
+            HeadwearLikelihood    : analysis.HeadwearLikelihood,
+            JoyLikelihood         : analysis.JoyLikelihood,
+            SorrowLikelihood      : analysis.SorrowLikelihood,
+            AngerLikelihood       : analysis.AngerLikelihood,
+            SurpriseLikelihood    : analysis.SurpriseLikelihood,
+            BlurLevel             : analysis.BlurLevel,
+            ExposureLevel         : analysis.ExposureLevel
         );
     }
 }

@@ -31,6 +31,7 @@ export default defineConfig({
     timeout:             120_000,
     env: {
       ASPNETCORE_ENVIRONMENT: 'Development',
+      POFACE_ENABLE_KEYVAULT: 'false',
     },
   },
 

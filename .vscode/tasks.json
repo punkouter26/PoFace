@@ -4,7 +4,7 @@
     {
       "label": "poface: stop stale api",
       "type": "shell",
-      "command": "Get-CimInstance Win32_Process -Filter \"name = 'dotnet.exe'\" | Where-Object { $_.CommandLine -match 'PoFace.Api' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }",
+      "command": "$targets = Get-CimInstance -ClassName Win32_Process | Where-Object { (($_.Name -eq 'dotnet.exe') -or ($_.Name -eq 'PoFace.Api.exe')) -and $_.CommandLine -match 'PoFace.Api' }; if ($targets) { $targets | ForEach-Object { Stop-Process -Id $_.ProcessId -Force } }",
       "problemMatcher": [],
       "presentation": {
         "reveal": "never",

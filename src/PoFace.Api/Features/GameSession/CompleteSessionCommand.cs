@@ -1,4 +1,6 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using PoFace.Api.Infrastructure.Storage;
 using PoFace.Api.Infrastructure.Telemetry;
 using PoFace.Api.Features.Scoring;
@@ -27,11 +29,16 @@ public sealed class CompleteSessionHandler : IRequestHandler<CompleteSessionComm
 
     private readonly ITableStorageService _tableStorage;
     private readonly ISender              _sender;
+    private readonly ILogger<CompleteSessionHandler> _logger;
 
-    public CompleteSessionHandler(ITableStorageService tableStorage, ISender sender)
+    public CompleteSessionHandler(
+        ITableStorageService tableStorage,
+        ISender sender,
+        ILogger<CompleteSessionHandler>? logger = null)
     {
         _tableStorage = tableStorage;
         _sender       = sender;
+        _logger = logger ?? NullLogger<CompleteSessionHandler>.Instance;
     }
 
     public async Task<CompleteSessionResult> Handle(
@@ -44,6 +51,8 @@ public sealed class CompleteSessionHandler : IRequestHandler<CompleteSessionComm
 
         // Sum scores from the 5 RoundCapture entities.
         int totalScore = 0;
+        var roundBreakdown = new List<string>(RoundCount);
+
         for (int round = 1; round <= RoundCount; round++)
         {
             var rowKey = $"{command.SessionId}_{round}";
@@ -55,22 +64,46 @@ public sealed class CompleteSessionHandler : IRequestHandler<CompleteSessionComm
                     $"Round {round} of session {command.SessionId} has not been scored.");
 
             totalScore += capture.Score;
+            roundBreakdown.Add($"R{round}:{capture.Score}");
         }
+
+        _logger.LogInformation(
+            "Session total calculation -> SessionId={SessionId}, UserId={UserId}, RoundScores={RoundScores}, TotalScore={TotalScore}",
+            command.SessionId,
+            command.UserId,
+            string.Join(", ", roundBreakdown),
+            totalScore);
 
         // Upsert leaderboard via BestMatchUpsertStrategy and get IsPersonalBest.
         var now = DateTimeOffset.UtcNow;
-        var leaderboardResult = await _sender.Send(
-            new UpsertLeaderboardEntryCommand(
-                UserId:      command.UserId,
-                DisplayName: session.DisplayName,
-                TotalScore:  totalScore,
-                SessionId:   command.SessionId,
-                RecapUrl:    $"/recap/{command.SessionId}",
-                DeviceType:  session.DeviceType,
-                AchievedAt:  now),
-            cancellationToken);
+        var isPersonalBest = false;
+        if (session.IsAuthenticatedUser)
+        {
+            var leaderboardResult = await _sender.Send(
+                new UpsertLeaderboardEntryCommand(
+                    UserId:      command.UserId,
+                    DisplayName: session.DisplayName,
+                    TotalScore:  totalScore,
+                    SessionId:   command.SessionId,
+                    RecapUrl:    $"/recap/{command.SessionId}",
+                    DeviceType:  session.DeviceType,
+                    AchievedAt:  now),
+                cancellationToken);
 
-        bool isPersonalBest = leaderboardResult.IsPersonalBest;
+            isPersonalBest = leaderboardResult.IsPersonalBest;
+            _logger.LogInformation(
+                "Leaderboard evaluation -> SessionId={SessionId}, UserId={UserId}, Eligible=true, IsPersonalBest={IsPersonalBest}",
+                command.SessionId,
+                command.UserId,
+                isPersonalBest);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Leaderboard evaluation -> SessionId={SessionId}, UserId={UserId}, Eligible=false (anonymous session), IsPersonalBest=false",
+                command.SessionId,
+                command.UserId);
+        }
 
         // Mark completed.
         session.IsCompleted    = true;
@@ -82,6 +115,14 @@ public sealed class CompleteSessionHandler : IRequestHandler<CompleteSessionComm
             session.ExpiresAt = now.Add(NonBestExpiry);
 
         await _tableStorage.UpsertEntityAsync("GameSessions", session, cancellationToken);
+
+        _logger.LogInformation(
+            "Session completion persisted -> SessionId={SessionId}, UserId={UserId}, TotalScore={TotalScore}, IsPersonalBest={IsPersonalBest}, ExpiresAt={ExpiresAt}",
+            command.SessionId,
+            command.UserId,
+            totalScore,
+            isPersonalBest,
+            session.ExpiresAt);
 
         // Increment OTel counter.
         OtelMetrics.SessionCompletionCount.Add(1,

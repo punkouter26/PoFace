@@ -5,7 +5,9 @@
 
   <ItemGroup>
     <!-- Azure AI & Cognitive Services -->
-    <PackageVersion Include="Azure.AI.Vision.Face" Version="1.0.0-beta.1" />
+
+    <!-- Google Cloud Vision -->
+    <PackageVersion Include="Google.Cloud.Vision.V1" Version="3.8.0" />
 
     <!-- Azure Storage -->
     <PackageVersion Include="Azure.Data.Tables" Version="12.9.1" />
@@ -40,6 +42,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
 
     <!-- Blazor / WASM Client -->
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Authentication.WebAssembly.Msal" Version="10.0.0" />

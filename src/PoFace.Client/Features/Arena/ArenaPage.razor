@@ -1,12 +1,151 @@
 @using PoFace.Client.Services
 @inject IJSRuntime JS
 @inject GameOrchestrator Orchestrator
-@inject NavigationManager Nav
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 @implements IAsyncDisposable
 
 @page "/arena"
-@attribute [Authorize]
 
+@if (ArenaErrorMessage is not null)
+{
+    <section class="arena-status-panel" role="alert" aria-live="assertive">
+        <h1>Camera Access Required</h1>
+        <p>@ArenaErrorMessage</p>
+        <div class="arena-status-actions">
+            <button class="arena-status-button"
+                    @onclick="RetryArenaStartupAsync"
+                    disabled="@IsStartingArena">
+                @(IsStartingArena ? "Retrying..." : "Retry Camera")
+            </button>
+            <a class="arena-status-link" href="/">Return Home</a>
+        </div>
+    </section>
+}
+else
+{
+<div class="arena-wrapper">
+
+    @* ── Left sidebar: per-round history ─────────────────────────────────── *@
+    <aside class="round-history" aria-label="Round history">
+        <div class="rh-header">ROUNDS</div>
+        @for (var i = 1; i <= 5; i++)
+        {
+            var roundNum = i;
+            var result = Orchestrator.Results.FirstOrDefault(r => r.RoundNumber == roundNum);
+            var isCurrent = roundNum == Orchestrator.CurrentRound && Orchestrator.State != GameState.GameOver;
+            var pending = result is null;
+
+            <div class="rh-row @(isCurrent ? "rh-current" : "") @(pending && !isCurrent ? "rh-pending" : "")">
+                <div class="rh-round-label">R@(roundNum)</div>
+                @if (result is not null)
+                {
+                    <div class="rh-emotion">@result.TargetEmotion</div>
+                    <div class="rh-score">@result.Score<span class="rh-denom">/10</span></div>
+                    @if (DiagMode)
+                    {
+                        <div class="rh-details">
+                            <div class="rh-kv">
+                                <span class="rh-k">Face</span>
+                                <span class="rh-v @(result.FaceDetected ? "rh-ok" : "rh-fail")">@(result.FaceDetected ? "YES" : "NO")</span>
+                            </div>
+                            <div class="rh-kv">
+                                <span class="rh-k">Conf</span>
+                                <span class="rh-v">@((result.RawConfidence * 100).ToString("0"))%</span>
+                            </div>
+                            <div class="rh-kv">
+                                <span class="rh-k">Pose</span>
+                                <span class="rh-v @(result.HeadPoseValid ? "rh-ok" : "rh-fail")">@(result.HeadPoseValid ? "OK" : "BAD")</span>
+                            </div>
+                            @if (result.HeadPoseYaw.HasValue)
+                            {
+                                <div class="rh-kv">
+                                    <span class="rh-k">Yaw</span>
+                                    <span class="rh-v">@(result.HeadPoseYaw.Value.ToString("0.0"))°</span>
+                                </div>
+                            }
+                            @if (result.HeadPosePitch.HasValue)
+                            {
+                                <div class="rh-kv">
+                                    <span class="rh-k">Pitch</span>
+                                    <span class="rh-v">@(result.HeadPosePitch.Value.ToString("0.0"))°</span>
+                                </div>
+                            }
+                            @if (result.HeadPoseRoll.HasValue)
+                            {
+                                <div class="rh-kv">
+                                    <span class="rh-k">Roll</span>
+                                    <span class="rh-v">@(result.HeadPoseRoll.Value.ToString("0.0"))°</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(result.QualityLabel))
+                            {
+                                <div class="rh-kv">
+                                    <span class="rh-k">Quality</span>
+                                    <span class="rh-v">@result.QualityLabel</span>
+                                </div>
+                            }
+                            <div class="rh-kv">
+                                <span class="rh-k">Detection</span>
+                                <span class="rh-v">@((result.DetectionConfidence * 100).ToString("0"))%</span>
+                            </div>
+                            <div class="rh-kv">
+                                <span class="rh-k">Landmark</span>
+                                <span class="rh-v">@((result.LandmarkingConfidence * 100).ToString("0"))%</span>
+                            </div>
+                            <div class="rh-kv">
+                                <span class="rh-k">Joy</span>
+                                <span class="rh-v @(result.JoyLikelihood is "High" or "Medium" ? "rh-ok" : "")">@result.JoyLikelihood</span>
+                            </div>
+                            <div class="rh-kv">
+                                <span class="rh-k">Sorrow</span>
+                                <span class="rh-v @(result.SorrowLikelihood is "High" or "Medium" ? "rh-warn" : "")">@result.SorrowLikelihood</span>
+                            </div>
+                            <div class="rh-kv">
+                                <span class="rh-k">Anger</span>
+                                <span class="rh-v @(result.AngerLikelihood is "High" or "Medium" ? "rh-warn" : "")">@result.AngerLikelihood</span>
+                            </div>
+                            <div class="rh-kv">
+                                <span class="rh-k">Surprise</span>
+                                <span class="rh-v @(result.SurpriseLikelihood is "High" or "Medium" ? "rh-ok" : "")">@result.SurpriseLikelihood</span>
+                            </div>
+                            @if (result.HeadwearLikelihood is "High" or "Medium" or "Low")
+                            {
+                                <div class="rh-kv">
+                                    <span class="rh-k">Headwear</span>
+                                    <span class="rh-v rh-warn">@result.HeadwearLikelihood</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(result.BlurLevel) && result.BlurLevel != "None")
+                            {
+                                <div class="rh-kv">
+                                    <span class="rh-k">Blur</span>
+                                    <span class="rh-v @(result.BlurLevel == "High" ? "rh-fail" : result.BlurLevel == "Medium" ? "rh-warn" : "")">@result.BlurLevel</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(result.ExposureLevel))
+                            {
+                                <div class="rh-kv">
+                                    <span class="rh-k">Exposure</span>
+                                    <span class="rh-v @(result.ExposureLevel == "GoodExposure" ? "rh-ok" : "rh-warn")">@result.ExposureLevel</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else if (isCurrent)
+                {
+                    <div class="rh-emotion">@Orchestrator.CurrentTargetEmotion</div>
+                    <div class="rh-score rh-live">…</div>
+                }
+                else
+                {
+                    <div class="rh-score rh-pending-dash">–</div>
+                }
+            </div>
+        }
+    </aside>
+
+    @* ── Main camera canvas ───────────────────────────────────────────────── *@
 <div class="arena-canvas">
     @* Live webcam preview (always visible while camera is active) *@
     <video id="webcam-preview"
@@ -14,7 +153,7 @@
            muted
            playsinline
            aria-label="Live camera preview"
-           style="display:@(ShowPreview ? "block" : "none"); width:100%; max-width:640px;" />
+           style="display:@(ShowPreview ? "block" : "none"); width:100%;" />
 
     @* Targeting guide — shows red pulse when head pose is invalid *@
     <FaceGuide HeadPoseInvalid="@HeadPoseInvalid" />
@@ -42,13 +181,31 @@
     @if (Orchestrator.State == GameState.GameOver)
     {
         <div class="overlay game-over-panel" role="region" aria-label="Game over">
+            <p class="game-over-kicker">Session Complete</p>
             <h2>GAME OVER</h2>
-            <p class="total-score">Total: <strong>@Orchestrator.TotalScore</strong> / 50</p>
+            <p class="game-over-total-label">Final Score</p>
+            <p class="total-score">
+                <strong>@Orchestrator.TotalScore</strong>
+                <span class="score-max">/ 50</span>
+            </p>
+            <div class="game-over-stats" aria-label="Session summary">
+                <div>
+                    <span class="stat-label">Rounds</span>
+                    <strong>@Orchestrator.Results.Count</strong>
+                </div>
+                <div>
+                    <span class="stat-label">Avg / Round</span>
+                    <strong>@AverageRoundScore</strong>
+                </div>
+            </div>
             @if (Orchestrator.IsPersonalBest)
             {
-                <p class="personal-best" aria-live="polite">🏆 Personal Best!</p>
+                <p class="personal-best" aria-live="polite">Personal Best Achieved</p>
             }
-            <button class="btn-play-again" @onclick="PlayAgainAsync">Play Again</button>
+            <div class="game-over-actions">
+                <button class="btn-play-again" @onclick="PlayAgainAsync">Play Again</button>
+                <a class="btn-game-home" href="/">Return Home</a>
+            </div>
         </div>
     }
 
@@ -65,10 +222,16 @@
             </span>
         }
     </div>
-</div>
+</div>@* arena-canvas *@
+</div>@* arena-wrapper *@
+}
 
 @code {
     private CancellationTokenSource _cts = new();
+    private bool IsStartingArena;
+    private string? ArenaErrorMessage;
+
+    private bool DiagMode => Config.GetValue<bool>("DiagnosticMode");
 
     private bool ShowPreview =>
         Orchestrator.State is GameState.Idle or GameState.GetReady
@@ -79,32 +242,99 @@
         && n == Orchestrator.CurrentRound - 1
         && Orchestrator.State is GameState.GetReady or GameState.Countdown;
 
+    private string AverageRoundScore =>
+        Orchestrator.Results.Count == 0
+            ? "0.0"
+            : (Orchestrator.Results.Average(r => r.Score)).ToString("0.0");
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
         Orchestrator.StateChanged += OnStateChanged;
 
+        string permissionState;
         try
         {
-            await JS.InvokeVoidAsync("webcamInterop.initCamera", "webcam-preview");
+            permissionState = await JS.InvokeAsync<string>("webcamInterop.getCameraPermissionState");
+        }
+        catch (JSException)
+        {
+            permissionState = "unknown";
+        }
+
+        if (string.Equals(permissionState, "prompt", StringComparison.Ordinal))
+        {
+            ArenaErrorMessage = "Click Retry Camera to request camera access, then choose Allow in the browser prompt.";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (string.Equals(permissionState, "denied", StringComparison.Ordinal))
+        {
+            ArenaErrorMessage = "Camera access is blocked. Use the camera icon in the address bar to allow access, then retry.";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        await StartArenaAsync();
+    }
+
+    private async Task StartArenaAsync()
+    {
+        if (IsStartingArena)
+            return;
+
+        IsStartingArena = true;
+        ArenaErrorMessage = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("webcamInterop.releaseCamera");
+
+            var cameraStatus = await JS.InvokeAsync<string>("webcamInterop.initCamera", "webcam-preview");
+            if (!string.Equals(cameraStatus, "ok", StringComparison.Ordinal))
+            {
+                ArenaErrorMessage = cameraStatus switch
+                {
+                    "permission-denied" => "Camera access was blocked. Allow camera permission in the browser and retry.",
+                    "camera-unavailable" => "No usable camera was detected. Connect a camera and retry.",
+                    _ => "The arena could not start the camera. Retry or return home."
+                };
+                return;
+            }
+
             await Orchestrator.StartGameAsync(_cts.Token);
         }
         catch (OperationCanceledException) { /* navigated away */ }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Arena start error: {ex.Message}");
-            Nav.NavigateTo("/");
+            ArenaErrorMessage = "The arena could not start. Retry the camera or return home.";
+        }
+        finally
+        {
+            IsStartingArena = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task RetryArenaStartupAsync()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+        _cts = new CancellationTokenSource();
+        await StartArenaAsync();
+    }
 
     private async Task PlayAgainAsync()
     {
         _cts.Cancel();
         _cts.Dispose();
         _cts = new CancellationTokenSource();
+        ArenaErrorMessage = null;
         try
         {
             await Orchestrator.StartGameAsync(_cts.Token);
@@ -117,6 +347,13 @@
         Orchestrator.StateChanged -= OnStateChanged;
         _cts.Cancel();
         _cts.Dispose();
-        await JS.InvokeVoidAsync("webcamInterop.releaseCamera");
+        try
+        {
+            await JS.InvokeVoidAsync("webcamInterop.releaseCamera");
+        }
+        catch (JSException)
+        {
+            // Ignore teardown failures during navigation or app shutdown.
+        }
     }
 }

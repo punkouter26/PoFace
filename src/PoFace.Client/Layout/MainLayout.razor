@@ -6,7 +6,14 @@
     <header class="terminal-header panel glow">
         <pre class="ascii-logo" aria-label="PoFace logo">POFACE::ARCADE</pre>
         <div class="status-line">
-            <span>Operator: @(_displayName ?? "anonymous")</span>
+            <AuthorizeView>
+                <Authorized>
+                    <span>Operator: @(context.User.Identity?.Name ?? "authenticated-user")</span>
+                </Authorized>
+                <NotAuthorized>
+                    <span>Operator: anonymous</span>
+                </NotAuthorized>
+            </AuthorizeView>
             <span class="status-active">SYSTEM ONLINE</span>
         </div>
         <nav class="terminal-nav" aria-label="Primary">
@@ -29,15 +36,8 @@
 </div>
 
 @code {
-    private string? _displayName;
-
     protected override async Task OnInitializedAsync()
     {
         await ThemeService.InitializeAsync();
-
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        _displayName = authState.User.Identity?.IsAuthenticated == true
-            ? (authState.User.Identity?.Name ?? "authenticated-user")
-            : null;
     }
 }

@@ -1,6 +1,6 @@
-using Azure.AI.Vision.Face;
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
+using Google.Cloud.Vision.V1;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,13 +40,16 @@ public sealed class PoFaceWebAppFactory : WebApplicationFactory<Program>
             services.AddSingleton<IBlobStorageService, BlobStorageService>();
             services.AddSingleton<ITableStorageService, TableStorageService>();
 
-            // Remove real FaceClient (not available in test environment).
-            RemoveService<FaceClient>(services);
+            // Remove real ImageAnnotatorClient (not available in test environment).
+            RemoveService<ImageAnnotatorClient>(services);
             RemoveService<IFaceAnalysisService>(services);
             services.AddScoped<IFaceAnalysisService, StubFaceAnalysisService>();
 
-            // Program.cs already registers PoTestAuth in Testing environment.
-            // Do not register it again here to avoid duplicate scheme errors.
+            // When appsettings.json has a real AzureAd:TenantId, Program.cs registers
+            // MicrosoftIdentityWebApi instead of PoTestAuth. Override the default auth
+            // scheme to PoTestAuth here so integration tests can authenticate via
+            // X-Test-User-Id / X-Test-Display-Name request headers.
+            services.AddPoTestAuth();
         });
     }
 

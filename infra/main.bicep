@@ -1,7 +1,8 @@
 param location string = resourceGroup().location
-param environmentName string = 'poface-dev'
-param sharedKeyVaultName string = 'PoShared'
-param sharedKeyVaultResourceGroupName string = 'PoShared-rg'
+param environmentName string = 'dev'
+param sharedKeyVaultName string = 'kv-poshared'
+param sharedKeyVaultResourceGroupName string = 'PoShared'
+param logAnalyticsWorkspaceId string = '/subscriptions/bbb8dfbe-9169-432f-9b7a-fbf861b51037/resourceGroups/PoShared/providers/Microsoft.OperationalInsights/workspaces/PoShared-LogAnalytics'
 param appServiceSkuName string = 'B1'
 
 var normalizedEnvironment = toLower(replace(environmentName, '-', ''))
@@ -9,8 +10,6 @@ var webAppName = 'poface-${normalizedEnvironment}-web'
 var planName = 'poface-${normalizedEnvironment}-plan'
 var storageAccountName = take('poface${normalizedEnvironment}sa', 24)
 var appInsightsName = 'PoFace-${environmentName}-appi'
-var keyVaultSecretsUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
-
 resource sharedKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   scope: resourceGroup(sharedKeyVaultResourceGroupName)
   name: sharedKeyVaultName
@@ -52,7 +51,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   kind: 'web'
   properties: {
     Application_Type: 'web'
-    WorkspaceResourceId: ''
+    WorkspaceResourceId: logAnalyticsWorkspaceId
   }
 }
 
@@ -97,20 +96,19 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-resource keyVaultSecretsUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(sharedKeyVault.id, webApp.id, keyVaultSecretsUserRoleId)
-  scope: sharedKeyVault
-  properties: {
+module keyVaultAccess './keyvault-access.bicep' = {
+  name: 'keyVaultAccess'
+  scope: resourceGroup(sharedKeyVaultResourceGroupName)
+  params: {
+    keyVaultName: sharedKeyVaultName
     principalId: webApp.identity.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: keyVaultSecretsUserRoleId
   }
 }
 
 resource blobLifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05-01' = {
   name: 'default'
   parent: storageAccount
-  properties: loadJsonContent('storage-lifecycle.json').properties
+  properties: loadJsonContent('storage-lifecycle.json').resources[0].properties
 }
 
 output appServiceName string = webApp.name

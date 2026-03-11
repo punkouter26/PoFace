@@ -24,6 +24,7 @@ public sealed class GameSessionEntity : ITableEntity
     public string SessionId   { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string DeviceType  { get; set; } = string.Empty;
+    public bool   IsAuthenticatedUser { get; set; }
     public bool   IsCompleted { get; set; }
     public int    TotalScore  { get; set; }
     public bool   IsPersonalBest { get; set; }
@@ -52,8 +53,8 @@ public sealed class PlayerEntity : ITableEntity
 // Start Session
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// <summary>Starts a new game session for the authenticated user.</summary>
-public sealed record StartSessionCommand(string UserId, string DisplayName, string DeviceType)
+/// <summary>Starts a new game session for either an authenticated or anonymous player.</summary>
+public sealed record StartSessionCommand(string? UserId, string? DisplayName, string DeviceType, bool IsAuthenticatedUser)
     : IRequest<StartSessionResult>;
 
 /// <summary>Returns the new session ID and the 5 fixed target-emotion rounds (FR-009).</summary>
@@ -79,27 +80,35 @@ public sealed class StartSessionHandler : IRequestHandler<StartSessionCommand, S
     {
         var sessionId = Guid.NewGuid().ToString("N");
         var now       = DateTimeOffset.UtcNow;
+        var isAuthenticatedUser = command.IsAuthenticatedUser && !string.IsNullOrWhiteSpace(command.UserId);
+        var effectiveUserId = isAuthenticatedUser ? command.UserId! : $"anon-{sessionId}";
+        var effectiveDisplayName = isAuthenticatedUser
+            ? (string.IsNullOrWhiteSpace(command.DisplayName) ? effectiveUserId : command.DisplayName!)
+            : "Anonymous";
 
-        // Upsert the Player record (update LastSeenAt).
-        var player = new PlayerEntity
+        if (isAuthenticatedUser)
         {
-            PartitionKey = "Player",
-            RowKey       = command.UserId,
-            UserId       = command.UserId,
-            DisplayName  = command.DisplayName,
-            LastSeenAt   = now
-        };
-        await _tableStorage.UpsertEntityAsync("Players", player, cancellationToken);
+            var player = new PlayerEntity
+            {
+                PartitionKey = "Player",
+                RowKey       = effectiveUserId,
+                UserId       = effectiveUserId,
+                DisplayName  = effectiveDisplayName,
+                LastSeenAt   = now
+            };
+            await _tableStorage.UpsertEntityAsync("Players", player, cancellationToken);
+        }
 
         // Create the new GameSession.
         var session = new GameSessionEntity
         {
-            PartitionKey = command.UserId,
+            PartitionKey = effectiveUserId,
             RowKey       = sessionId,
-            UserId       = command.UserId,
+            UserId       = effectiveUserId,
             SessionId    = sessionId,
-            DisplayName  = command.DisplayName,
+            DisplayName  = effectiveDisplayName,
             DeviceType   = command.DeviceType,
+            IsAuthenticatedUser = isAuthenticatedUser,
             IsCompleted  = false,
             TotalScore   = 0,
             StartedAt    = now

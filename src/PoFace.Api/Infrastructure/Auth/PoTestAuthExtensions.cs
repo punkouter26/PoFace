@@ -33,18 +33,11 @@ internal sealed class PoTestAuthHandler : AuthenticationHandler<AuthenticationSc
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        // 1. Try the X-Test-User-Id request header (integration / unit tests).
         string? userId;
         if (Request.Headers.TryGetValue("X-Test-User-Id", out var headerUserId) &&
             !string.IsNullOrWhiteSpace(headerUserId))
         {
             userId = headerUserId.ToString();
-        }
-        // 2. Fall back to a cookie set by POST /dev-login (browser dev flow).
-        else if (Request.Cookies.TryGetValue("X-Test-User-Id", out var cookieUserId) &&
-                 !string.IsNullOrWhiteSpace(cookieUserId))
-        {
-            userId = cookieUserId;
         }
         else
         {
@@ -52,7 +45,6 @@ internal sealed class PoTestAuthHandler : AuthenticationHandler<AuthenticationSc
         }
 
         var displayName = Request.Headers["X-Test-Display-Name"].FirstOrDefault()
-                       ?? Request.Cookies["X-Test-Display-Name"]
                        ?? "Test User";
 
         var claims = new[]
