@@ -50,6 +50,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'
+      appCommandLine: 'dotnet PoFace.Api.dll'
       alwaysOn: true
       http20Enabled: true
       minTlsVersion: '1.2'
