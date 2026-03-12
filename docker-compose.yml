@@ -9,6 +9,12 @@ services:
     volumes:
       - azurite-data:/data
     command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --loose
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10002"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
 
 volumes:
   azurite-data:

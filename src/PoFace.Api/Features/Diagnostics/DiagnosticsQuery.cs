@@ -75,7 +75,9 @@ public sealed class DiagnosticsQueryHandler : IRequestHandler<DiagnosticsQuery, 
         var face = await ProbeFaceAsync(cancellationToken);
 
         var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "0.0.0";
-        var region = Environment.GetEnvironmentVariable("WEBSITE_REGION") ?? "local";
+        // REGION_NAME is the standard Azure App Service env var for the deployment region.
+        // WEBSITE_REGION is not populated by the platform.
+        var region = Environment.GetEnvironmentVariable("REGION_NAME") ?? "local";
 
         var faceKey = _configuration["AzureFace:ApiKey"] ?? string.Empty;
         var appInsights = _configuration.GetAppInsightsConnectionString() ?? string.Empty;

@@ -490,6 +490,8 @@ tests/PoFace.E2ETests/test-results/
 # PoFace-specific build outputs
 publish-output/
 publish-output.zip
+publish-check/
+deploy.zip
 infra/main.json
 
 # Local tooling state

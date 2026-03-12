@@ -2,7 +2,29 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "PoFace.Api",
+      "name": "PoFace.Api (watch)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "poface: stop stale api",
+      "program": "${workspaceFolder}/src/PoFace.Api/bin/Debug/net10.0/PoFace.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/PoFace.Api",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:5001;http://localhost:5000",
+        "POFACE_ENABLE_KEYVAULT": "false"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Now listening on:\\s+(https?://\\S+)"
+      },
+      "launchBrowser": {
+        "enabled": false
+      }
+    },
+    {
+      "name": "PoFace.Api (build)",
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "poface: prepare debug",
@@ -12,7 +34,8 @@
       "stopAtEntry": false,
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "https://localhost:5001;http://localhost:5000"
+        "ASPNETCORE_URLS": "https://localhost:5001;http://localhost:5000",
+        "POFACE_ENABLE_KEYVAULT": "false"
       },
       "serverReadyAction": {
         "action": "openExternally",
