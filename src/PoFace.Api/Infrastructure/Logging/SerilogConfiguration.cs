@@ -19,13 +19,25 @@ public static class SerilogConfiguration
             .Enrich.WithMachineName()
             .Enrich.WithProperty("Environment", builder.Environment.EnvironmentName);
 
+        // On Azure App Service with WEBSITE_RUN_FROM_PACKAGE the working dir is
+        // a read-only ZIP mount.  Use WEBSITE_CONTENTSHARE's writable log path
+        // (/home/LogFiles) when available, or fall back to /tmp.
+        var logDir = builder.Environment.IsDevelopment()
+            ? "logs"
+            : (Environment.GetEnvironmentVariable("HOME") is { } home
+                ? Path.Combine(home, "LogFiles", "Application")
+                : Path.GetTempPath());
+
+        if (!builder.Environment.IsDevelopment())
+            Directory.CreateDirectory(logDir);
+
         loggerConfig = builder.Environment.IsDevelopment()
             ? loggerConfig.WriteTo.File(
-                path: Path.Combine("logs", $"poface-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Environment.ProcessId}.log"),
+                path: Path.Combine(logDir, $"poface-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Environment.ProcessId}.log"),
                 retainedFileCountLimit: 20,
                 outputTemplate: outputTemplate)
             : loggerConfig.WriteTo.File(
-                path: Path.Combine("logs", "poface-.log"),
+                path: Path.Combine(logDir, "poface-.log"),
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 14,
                 outputTemplate: outputTemplate);
