@@ -79,7 +79,8 @@ jobs:
             --file ./deploy.zip \
             --overwrite --output none
 
-          SAS_EXPIRY=$(date -u -d "2 days" '+%Y-%m-%dT%H:%MZ')
+          # SAS valid for 90 days — rotated on every deploy
+          SAS_EXPIRY=$(date -u -d "90 days" '+%Y-%m-%dT%H:%MZ')
           SAS_TOKEN=$(az storage blob generate-sas \
             --account-name pofacedevsa \
             --account-key "$SA_KEY" \
@@ -90,25 +91,23 @@ jobs:
 
           echo "blob_url=https://pofacedevsa.blob.core.windows.net/deployments/${BLOB_NAME}?${SAS_TOKEN}" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Azure App Service
+      - name: Deploy via Run-From-Package (no Kudu upload)
         run: |
-          az webapp deploy \
+          # Point WEBSITE_RUN_FROM_PACKAGE at the blob — App Service reads it directly.
+          # This bypasses Kudu OneDeploy and avoids the 504 gateway timeout.
+          az webapp config appsettings set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --src-url "${{ steps.upload.outputs.blob_url }}" \
-            --type zip \
-            --async true \
+            --settings "WEBSITE_RUN_FROM_PACKAGE=${{ steps.upload.outputs.blob_url }}" \
             --output none
 
-      - name: Wait for deployment
-        run: |
-          echo "Waiting for deployment to complete..."
-          sleep 90
           az webapp restart \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --output none
-          sleep 30
+
+          echo "Waiting for app to start..."
+          sleep 45
 
       - name: Verify deployment health
         run: |
