@@ -19,10 +19,16 @@ using PoFace.Api.Infrastructure.Telemetry;
 using Scalar.AspNetCore;
 using Serilog;
 
+Console.Error.WriteLine($"[STARTUP] Process starting. PID={Environment.ProcessId} ENV={Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")} HOME={Environment.GetEnvironmentVariable("HOME")} PORT={Environment.GetEnvironmentVariable("PORT")} ASPNETCORE_URLS={Environment.GetEnvironmentVariable("ASPNETCORE_URLS")}");
+
 var builder = WebApplication.CreateBuilder(args);
 
+Console.Error.WriteLine("[STARTUP] WebApplicationBuilder created.");
+
 // ── Key Vault ─────────────────────────────────────────────────────────────────
+Console.Error.WriteLine("[STARTUP] Starting Key Vault configuration...");
 builder.Configuration.AddPoFaceKeyVault(builder.Environment);
+Console.Error.WriteLine("[STARTUP] Key Vault configuration complete.");
 
 // ── Serilog ───────────────────────────────────────────────────────────────────
 builder.AddPoFaceSerilog();
@@ -120,7 +126,9 @@ builder.Services.AddAuthorization(options =>
 // ── Problem Details ───────────────────────────────────────────────────────────
 builder.Services.AddProblemDetails();
 
+Console.Error.WriteLine("[STARTUP] DI registration complete. Calling builder.Build()...");
 var app = builder.Build();
+Console.Error.WriteLine("[STARTUP] app.Build() complete. Configuring middleware...");
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
 app.UseMiddleware<CorrelationIdMiddleware>();    // T014 — must be first
@@ -192,6 +200,7 @@ app.MapGet("/api/{**slug}", () => Results.NotFound()).AllowAnonymous();
 app.MapFallbackToFile("index.html")
     .AllowAnonymous();
 
+Console.Error.WriteLine("[STARTUP] Middleware configured. Calling app.Run()...");
 app.Run();
 
 // Make Program accessible to WebApplicationFactory in integration tests
