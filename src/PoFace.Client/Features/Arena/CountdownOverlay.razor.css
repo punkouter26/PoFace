@@ -1,0 +1,24 @@
+/* ── Countdown overlay ─────────────────────────────────────────────────────── */
+
+.countdown-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.countdown-digit {
+    font-size: 8rem;
+    font-weight: bold;
+    color: #00ff00;
+    text-shadow: 0 0 40px rgba(0, 255, 0, 0.85);
+    line-height: 1;
+    animation: countdown-pop 1s ease-out;
+}
+
+@keyframes countdown-pop {
+    0%   { transform: scale(1.4); opacity: 0.7; }
+    100% { transform: scale(1);   opacity: 1; }
+}

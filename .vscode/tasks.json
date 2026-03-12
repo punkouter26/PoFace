@@ -8,7 +8,8 @@
 			"problemMatcher": [],
 			"presentation": {
 				"reveal": "never",
-				"panel": "dedicated"
+				"panel": "dedicated",
+				"close": true
 			}
 		},
 		{
@@ -22,7 +23,11 @@
 			"problemMatcher": [
 				"$msCompile"
 			],
-			"group": "build"
+			"group": "build",
+			"presentation": {
+				"reveal": "never",
+				"close": true
+			}
 		},
 		{
 			"label": "poface: prepare debug",

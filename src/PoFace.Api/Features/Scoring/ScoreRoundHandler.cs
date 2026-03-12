@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -87,7 +88,10 @@ public sealed class ScoreRoundHandler : IRequestHandler<ScoreRoundCommand, Score
             HeadPosePitch = analysis.HeadPosePitch,
             HeadPoseValid = analysis.HeadPoseValid,
             ImageBlobUrl  = imageUrl,
-            CapturedAt    = DateTimeOffset.UtcNow
+            CapturedAt    = DateTimeOffset.UtcNow,
+            LandmarksJson = analysis.Landmarks.Count > 0
+                ? JsonSerializer.Serialize(analysis.Landmarks)
+                : null
         };
 
         await _tableStorage.UpsertEntityAsync("RoundCaptures", entity, cancellationToken);
@@ -132,7 +136,8 @@ public sealed class ScoreRoundHandler : IRequestHandler<ScoreRoundCommand, Score
                 AngerLikelihood       : analysis.AngerLikelihood,
                 SurpriseLikelihood    : analysis.SurpriseLikelihood,
                 BlurLevel             : analysis.BlurLevel,
-                ExposureLevel         : analysis.ExposureLevel)
+                ExposureLevel         : analysis.ExposureLevel,
+                Landmarks             : analysis.Landmarks)
         );
     }
 }

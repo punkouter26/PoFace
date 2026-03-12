@@ -117,6 +117,12 @@ public sealed record ScoreRoundResponse(
     [property: JsonPropertyName("imageUrl")]      string  ImageUrl,
     [property: JsonPropertyName("diagnostics")]   ScoreRoundDiagnosticsDto? Diagnostics);
 
+public sealed record FaceLandmarkDto(
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("x")]    float  X,
+    [property: JsonPropertyName("y")]    float  Y,
+    [property: JsonPropertyName("z")]    float  Z);
+
 public sealed record ScoreRoundDiagnosticsDto(
     [property: JsonPropertyName("detectionConfidence")]   double DetectionConfidence,
     [property: JsonPropertyName("landmarkingConfidence")] double LandmarkingConfidence,
@@ -126,4 +132,5 @@ public sealed record ScoreRoundDiagnosticsDto(
     [property: JsonPropertyName("angerLikelihood")]       string AngerLikelihood,
     [property: JsonPropertyName("surpriseLikelihood")]    string SurpriseLikelihood,
     [property: JsonPropertyName("blurLevel")]             string BlurLevel,
-    [property: JsonPropertyName("exposureLevel")]         string ExposureLevel);
+    [property: JsonPropertyName("exposureLevel")]             string ExposureLevel,
+    [property: JsonPropertyName("landmarks")]                 IReadOnlyList<FaceLandmarkDto>? Landmarks = null);

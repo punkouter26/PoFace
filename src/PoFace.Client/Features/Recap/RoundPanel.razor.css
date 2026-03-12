@@ -21,6 +21,24 @@
     filter: saturate(0.6) brightness(0.85);
 }
 
+.rp-landmark-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.rp-image-wrap:hover .rp-landmark-overlay {
+    opacity: 1;
+}
+
+.rp-landmark-overlay circle {
+    fill: rgba(33, 150, 243, 0.55);
+}
+
 .rp-round-badge {
     position: absolute;
     top: 0.4rem;

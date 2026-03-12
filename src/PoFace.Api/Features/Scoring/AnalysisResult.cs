@@ -1,5 +1,8 @@
 namespace PoFace.Api.Features.Scoring;
 
+/// <summary>Raw facial landmark position returned by Google Cloud Vision.</summary>
+public sealed record FaceLandmark(string Type, float X, float Y, float Z);
+
 /// <summary>
 /// Transient result from <see cref="IFaceAnalysisService.AnalyzeFrameAsync"/>.
 /// Never persisted to storage — consumed by <see cref="ScoreRoundHandler"/>.
@@ -42,6 +45,9 @@ public sealed record AnalysisResult
 
     /// <summary>Final score: HeadPoseValid ? Round(Confidence * 10) : 0</summary>
     public int Score { get; init; }
+
+    /// <summary>Facial landmark positions returned by Google Cloud Vision (up to 34 points).</summary>
+    public IReadOnlyList<FaceLandmark> Landmarks { get; init; } = [];
 
     /// <summary>False when the Face API returned an empty detection list.</summary>
     public bool FaceDetected { get; init; }

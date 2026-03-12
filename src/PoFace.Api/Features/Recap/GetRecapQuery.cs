@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Azure.Data.Tables;
 using MediatR;
@@ -26,13 +27,16 @@ public sealed record RecapDto(
     DateTimeOffset                CompletedAt,
     IReadOnlyList<RecapRoundDto>  Rounds);
 
+public sealed record RecapLandmarkDto(float X, float Y, float Z);
+
 public sealed record RecapRoundDto(
     int            RoundNumber,
     string         TargetEmotion,
     int            Score,
     bool           HeadPoseValid,
     string         ImageUrl,
-    DateTimeOffset CapturedAt);
+    DateTimeOffset CapturedAt,
+    IReadOnlyList<RecapLandmarkDto>? Landmarks = null);
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
@@ -92,13 +96,21 @@ public sealed class GetRecapHandler : IRequestHandler<GetRecapQuery, GetRecapRes
 
             if (capture is not null)
             {
+                IReadOnlyList<RecapLandmarkDto>? landmarks = null;
+                if (!string.IsNullOrEmpty(capture.LandmarksJson))
+                {
+                    var raw = JsonSerializer.Deserialize<List<FaceLandmark>>(capture.LandmarksJson);
+                    landmarks = raw?.Select(l => new RecapLandmarkDto(l.X, l.Y, l.Z)).ToList();
+                }
+
                 rounds.Add(new RecapRoundDto(
                     RoundNumber:   capture.RoundNumber,
                     TargetEmotion: capture.TargetEmotion,
                     Score:         capture.Score,
                     HeadPoseValid: capture.HeadPoseValid,
                     ImageUrl:      imageUrls[i - 1],
-                    CapturedAt:    capture.CapturedAt));
+                    CapturedAt:    capture.CapturedAt,
+                    Landmarks:     landmarks));
             }
         }
 

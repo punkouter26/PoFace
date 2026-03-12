@@ -152,3 +152,34 @@
 .dbg-fail {
     color: #ff5555;
 }
+
+/* ── Landmark overlay (score reveal thumbnail) ────────────────────────────── */
+
+.score-face-wrap {
+    position: relative;
+    width: min(45vw, 220px);
+    aspect-ratio: 640 / 480;
+    flex-shrink: 0;
+    margin-bottom: 0.25rem;
+}
+
+.score-face-img {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    display: block;
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    border-radius: 2px;
+}
+
+.landmark-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.landmark-overlay circle {
+    fill: rgba(33, 150, 243, 0.55);
+}

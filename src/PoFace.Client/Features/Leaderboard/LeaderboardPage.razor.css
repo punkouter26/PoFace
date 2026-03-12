@@ -1,0 +1,13 @@
+.leaderboard-container {
+    max-width: 860px;
+    margin: 2.5rem auto;
+    padding: 0 1.5rem;
+}
+
+.leaderboard-meta {
+    margin-bottom: 1.25rem;
+}
+
+.leaderboard-grid {
+    width: 100%;
+}

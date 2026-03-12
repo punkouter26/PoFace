@@ -42,6 +42,7 @@ public sealed record RoundResult(
     string  SurpriseLikelihood,
     string  BlurLevel,
     string  ExposureLevel,
+    IReadOnlyList<FaceLandmarkDto>? Landmarks = null,
     bool    IsNetworkError = false);
 
 /// <summary>
@@ -156,6 +157,7 @@ public sealed class GameOrchestrator : IAsyncDisposable
             roundResult.Diagnostics?.SurpriseLikelihood    ?? "",
             roundResult.Diagnostics?.BlurLevel             ?? "",
             roundResult.Diagnostics?.ExposureLevel         ?? "",
+            Landmarks:      roundResult.Diagnostics?.Landmarks,
             IsNetworkError: networkError));
 
         await TransitionAsync(GameState.ScoreReveal);

@@ -6,6 +6,18 @@
              alt="Round @Round.RoundNumber capture — @Round.TargetEmotion"
              class="rp-image" />
         <div class="rp-round-badge">R@(Round.RoundNumber)</div>
+        @if (Round.Landmarks is { Count: > 0 })
+        {
+            <svg class="rp-landmark-overlay"
+                 viewBox="0 0 640 480"
+                 preserveAspectRatio="xMidYMid slice"
+                 xmlns="http://www.w3.org/2000/svg">
+                @foreach (var lm in Round.Landmarks)
+                {
+                    <circle cx="@Px(lm.X)" cy="@Px(lm.Y)" r="5" />
+                }
+            </svg>
+        }
     </div>
     <div class="rp-body">
         <div class="rp-title">@Round.TargetEmotion.ToUpperInvariant()</div>
@@ -24,4 +36,6 @@
     /// <summary>The round data to display. Required.</summary>
     [Parameter, EditorRequired]
     public RecapRoundDto Round { get; set; } = default!;
+
+    private static string Px(float v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 }

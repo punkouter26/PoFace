@@ -494,3 +494,9 @@ infra/main.json
 
 # Local tooling state
 .potune-state.json
+
+# Copilot/tooling scratch files generated at repo root
+__*.txt
+
+# Publish check / local publish output
+publish-check/

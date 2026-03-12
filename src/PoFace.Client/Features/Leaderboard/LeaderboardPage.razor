@@ -5,6 +5,8 @@
 
 <PageTitle>Leaderboard – PoFace</PageTitle>
 
+<div class="leaderboard-container">
+
 <h1>Leaderboard</h1>
 
 @if (_loading)
@@ -17,9 +19,9 @@ else if (_errorMessage is not null)
 }
 else
 {
-    <p>Year: <strong>@_year</strong> &mdash; @_entries.Count entries</p>
+    <p class="leaderboard-meta">Year: <strong>@_year</strong> &mdash; @_entries.Count entries</p>
 
-    <RadzenDataGrid Data="@_entries" TItem="LeaderboardEntryDto" AllowSorting="true">
+    <RadzenDataGrid Data="@_entries" TItem="LeaderboardEntryDto" AllowSorting="true" class="leaderboard-grid">
         <Columns>
             <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="Rank" Title="#" Width="60px">
                 <Template Context="entry">
@@ -52,6 +54,8 @@ else
         </Columns>
     </RadzenDataGrid>
 }
+
+</div>
 
 @code {
     private bool               _loading = true;

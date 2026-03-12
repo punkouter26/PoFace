@@ -127,6 +127,9 @@ public sealed class GoogleVisionFaceAnalysisService : IFaceAnalysisService
             SurpriseLikelihood      = LikelihoodLabel(face.SurpriseLikelihood),
             BlurLevel               = blurLevel,
             ExposureLevel           = exposureLevel,
+            Landmarks               = face.Landmarks
+                .Select(l => new FaceLandmark(l.Type.ToString(), l.Position.X, l.Position.Y, l.Position.Z))
+                .ToList(),
         };
     }
 

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PoFace.Client.Features.Recap;
 
 /// <summary>Client-side DTO matching the GET /api/recap/{sessionId} response contract.</summary>
@@ -21,4 +23,12 @@ public sealed class RecapRoundDto
     public bool           HeadPoseValid { get; set; }
     public string         ImageUrl      { get; set; } = string.Empty;
     public DateTimeOffset CapturedAt    { get; set; }
+    public List<RecapLandmarkDto> Landmarks { get; set; } = [];
+}
+
+public sealed class RecapLandmarkDto
+{
+    [JsonPropertyName("x")] public float X { get; set; }
+    [JsonPropertyName("y")] public float Y { get; set; }
+    [JsonPropertyName("z")] public float Z { get; set; }
 }

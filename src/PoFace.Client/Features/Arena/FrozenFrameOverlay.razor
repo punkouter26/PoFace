@@ -30,6 +30,25 @@
         @if (State == GameState.ScoreReveal && LastResult is not null)
         {
             <div class="score-reveal-panel" role="status">
+                @if (!string.IsNullOrWhiteSpace(LastResult.ImageUrl))
+                {
+                    <div class="score-face-wrap">
+                        <img src="@LastResult.ImageUrl" class="score-face-img"
+                             alt="Round @LastResult.RoundNumber face capture" />
+                        @if (LastResult.Landmarks is { Count: > 0 })
+                        {
+                            <svg class="landmark-overlay"
+                                 viewBox="0 0 640 480"
+                                 preserveAspectRatio="xMidYMid meet"
+                                 xmlns="http://www.w3.org/2000/svg">
+                                @foreach (var lm in LastResult.Landmarks)
+                                {
+                                    <circle cx="@Px(lm.X)" cy="@Px(lm.Y)" r="5" />
+                                }
+                            </svg>
+                        }
+                    </div>
+                }
                 <p class="emotion-label">@WithEmoji(LastResult.TargetEmotion)</p>
                 <p class="score-value @(LastResult.Score == 10 ? "score-perfect" : "")" aria-label="Score @_displayScore out of 10">
                     @_displayScore <span class="score-denom">/ 10</span>
@@ -115,4 +134,7 @@
         _countUpCts?.Cancel();
         _countUpCts?.Dispose();
     }
+
+    private static string Px(float v) =>
+        v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 }

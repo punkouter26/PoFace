@@ -27,7 +27,8 @@ public sealed record ScoreRoundDiagnostics(
     string AngerLikelihood,
     string SurpriseLikelihood,
     string BlurLevel,
-    string ExposureLevel
+    string ExposureLevel,
+    IReadOnlyList<FaceLandmark>? Landmarks = null
 );
 
 /// <summary>Serialized directly as the HTTP 200 JSON response body.</summary>
@@ -69,4 +70,6 @@ public sealed class RoundCaptureEntity : ITableEntity
     public bool HeadPoseValid { get; set; }
     public string ImageBlobUrl { get; set; } = string.Empty;
     public DateTimeOffset CapturedAt { get; set; }
+    /// <summary>JSON-serialized list of FaceLandmark objects. Null when no face was detected.</summary>
+    public string? LandmarksJson { get; set; }
 }
