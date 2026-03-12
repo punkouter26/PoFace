@@ -57,12 +57,45 @@ jobs:
       - name: Zip publish output
         run: cd ./publish && zip -r ../deploy.zip . && cd ..
 
+      - name: Upload package to Blob Storage
+        id: upload
+        run: |
+          SA_KEY=$(az storage account keys list \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --account-name pofacedevsa \
+            --query '[0].value' -o tsv)
+
+          az storage container create \
+            --account-name pofacedevsa \
+            --account-key "$SA_KEY" \
+            --name deployments --output none 2>/dev/null || true
+
+          BLOB_NAME="deploy-${{ github.sha }}.zip"
+          az storage blob upload \
+            --account-name pofacedevsa \
+            --account-key "$SA_KEY" \
+            --container-name deployments \
+            --name "$BLOB_NAME" \
+            --file ./deploy.zip \
+            --overwrite --output none
+
+          SAS_EXPIRY=$(date -u -d "2 days" '+%Y-%m-%dT%H:%MZ')
+          SAS_TOKEN=$(az storage blob generate-sas \
+            --account-name pofacedevsa \
+            --account-key "$SA_KEY" \
+            --container-name deployments \
+            --name "$BLOB_NAME" \
+            --permissions r --expiry "$SAS_EXPIRY" \
+            --https-only -o tsv)
+
+          echo "blob_url=https://pofacedevsa.blob.core.windows.net/deployments/${BLOB_NAME}?${SAS_TOKEN}" >> $GITHUB_OUTPUT
+
       - name: Deploy to Azure App Service
         run: |
           az webapp deploy \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --src-path ./deploy.zip \
+            --src-url "${{ steps.upload.outputs.blob_url }}" \
             --type zip \
             --async true \
             --output none
