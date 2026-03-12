@@ -2,22 +2,31 @@
 @inject IJSRuntime JS
 @inject GameOrchestrator Orchestrator
 @inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IAsyncDisposable
 
 @page "/arena"
 
 @if (ArenaErrorMessage is not null)
 {
-    <section class="arena-status-panel" role="alert" aria-live="assertive">
-        <h1>Camera Access Required</h1>
-        <p>@ArenaErrorMessage</p>
+    <section class="arena-status-panel arena-feed-lost" role="alert" aria-live="assertive">
+        <div class="feed-lost-header">
+            <span class="feed-lost-label">&#9711; CAMERA OFFLINE</span>
+            <span class="feed-lost-cursor" aria-hidden="true">_</span>
+        </div>
+        <div class="feed-lost-terminal">
+            <p class="feed-lost-line"><span class="feed-lost-tag">[ERROR]</span> @ArenaErrorMessage</p>
+            <p class="feed-lost-step"><span class="feed-lost-num">1.</span> Click the camera icon in your browser&#39;s address bar.</p>
+            <p class="feed-lost-step"><span class="feed-lost-num">2.</span> Select <strong>Allow</strong> when prompted.</p>
+            <p class="feed-lost-step"><span class="feed-lost-num">3.</span> Press <strong>RETRY CAMERA</strong> below.</p>
+        </div>
         <div class="arena-status-actions">
-            <button class="arena-status-button"
+            <button class="arena-status-button arena-retry-primary"
                     @onclick="RetryArenaStartupAsync"
                     disabled="@IsStartingArena">
-                @(IsStartingArena ? "Retrying..." : "Retry Camera")
+                @(IsStartingArena ? "RETRYING..." : "RETRY CAMERA")
             </button>
-            <a class="arena-status-link" href="/">Return Home</a>
+            <a class="arena-status-link" href="/">RETURN HOME</a>
         </div>
     </section>
 }
@@ -39,7 +48,7 @@ else
                 <div class="rh-round-label">R@(roundNum)</div>
                 @if (result is not null)
                 {
-                    <div class="rh-emotion">@result.TargetEmotion</div>
+                    <div class="rh-emotion">@WithEmoji(result.TargetEmotion)</div>
                     <div class="rh-score">@result.Score<span class="rh-denom">/10</span></div>
                     @if (DiagMode)
                     {
@@ -134,7 +143,7 @@ else
                 }
                 else if (isCurrent)
                 {
-                    <div class="rh-emotion">@Orchestrator.CurrentTargetEmotion</div>
+                    <div class="rh-emotion">@WithEmoji(Orchestrator.CurrentTargetEmotion)</div>
                     <div class="rh-score rh-live">…</div>
                 }
                 else
@@ -157,13 +166,18 @@ else
 
     @* Targeting guide — shows red pulse when head pose is invalid *@
     <FaceGuide HeadPoseInvalid="@HeadPoseInvalid" />
+    @* Contextual caption: the pulse is backward-looking (last round's result) *@
+    @if (HeadPoseInvalid)
+    {
+        <p class="pose-feedback-notice" role="alert">Last round: head was not centred</p>
+    }
 
     @* GET READY banner *@
     @if (Orchestrator.State == GameState.GetReady)
     {
         <div class="overlay get-ready-banner" role="status" aria-live="polite">
             <h2>ROUND @Orchestrator.CurrentRound</h2>
-            <p class="emotion-label">Show <strong>@Orchestrator.CurrentTargetEmotion</strong></p>
+            <p class="emotion-label">Show <strong>@WithEmoji(Orchestrator.CurrentTargetEmotion)</strong></p>
         </div>
     }
 
@@ -172,7 +186,8 @@ else
 
     @* Frozen frame + score reveal *@
     <FrozenFrameOverlay State="@Orchestrator.State"
-                        LastResult="@Orchestrator.Results.LastOrDefault()" />
+                        LastResult="@Orchestrator.Results.LastOrDefault()"
+                        DiagMode="@DiagMode" />
 
     @* Flash target that shutter animation paints *@
     <div id="frozen-frame-overlay" class="shutter-target" aria-hidden="true"></div>
@@ -203,25 +218,19 @@ else
                 <p class="personal-best" aria-live="polite">Personal Best Achieved</p>
             }
             <div class="game-over-actions">
+                @if (Orchestrator.SessionId is not null)
+                {
+                    <a class="btn-view-recap" href="/recap/@Orchestrator.SessionId">&#127909; View Recap</a>
+                }
                 <button class="btn-play-again" @onclick="PlayAgainAsync">Play Again</button>
                 <a class="btn-game-home" href="/">Return Home</a>
             </div>
+            @if (!_isAuthenticated && Orchestrator.IsPersonalBest)
+            {
+                <p class="game-over-signin-prompt"><a href="authentication/login">Sign in</a> to save this score &amp; recap photos</p>
+            }
         </div>
     }
-
-    @* Round progress indicator *@
-    <div class="round-progress" aria-label="Round progress">
-        @for (var i = 1; i <= 5; i++)
-        {
-            var round = i; // capture loop variable
-            var cls = round < Orchestrator.CurrentRound ? "round-dot done"
-                    : round == Orchestrator.CurrentRound ? "round-dot current"
-                    : "round-dot";
-            <span class="@cls" aria-current="@(round == Orchestrator.CurrentRound ? "step" : null)">
-                @round
-            </span>
-        }
-    </div>
 </div>@* arena-canvas *@
 </div>@* arena-wrapper *@
 }
@@ -230,6 +239,24 @@ else
     private CancellationTokenSource _cts = new();
     private bool IsStartingArena;
     private string? ArenaErrorMessage;
+    private bool _isAuthenticated;
+
+    private static readonly Dictionary<string, string> _emotionEmoji = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Happy"]     = "\U0001F60A",
+        ["Sad"]       = "\U0001F622",
+        ["Angry"]     = "\U0001F624",
+        ["Surprised"] = "\U0001F632",
+        ["Fearful"]   = "\U0001F628",
+        ["Disgusted"] = "\U0001F922",
+        ["Neutral"]   = "\U0001F610",
+    };
+
+    private static string WithEmoji(string? emotion)
+    {
+        if (emotion is null) return string.Empty;
+        return _emotionEmoji.TryGetValue(emotion, out var e) ? $"{e} {emotion}" : emotion;
+    }
 
     private bool DiagMode => Config.GetValue<bool>("DiagnosticMode");
 
@@ -252,6 +279,9 @@ else
         if (!firstRender) return;
 
         Orchestrator.StateChanged += OnStateChanged;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
 
         string permissionState;
         try

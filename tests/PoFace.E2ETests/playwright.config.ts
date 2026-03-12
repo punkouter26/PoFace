@@ -32,6 +32,9 @@ export default defineConfig({
     env: {
       ASPNETCORE_ENVIRONMENT: 'Development',
       POFACE_ENABLE_KEYVAULT: 'false',
+      // Blank out the tenant ID so the API takes the PoTestAuth branch instead
+      // of the Entra ID branch, allowing X-Test-User-Id headers to authenticate.
+      AzureAd__TenantId: '',
     },
   },
 

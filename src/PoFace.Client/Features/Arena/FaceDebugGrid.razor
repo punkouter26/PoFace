@@ -1,0 +1,91 @@
+@using PoFace.Client.Services
+
+@* Renders a diagnostic key-value grid for a single RoundResult.
+   Only rendered when the caller is in diagnostic mode. *@
+
+@if (Result is not null)
+{
+    <div class="face-debug-grid">
+        <span class="dbg-label">Face detected</span>
+        <span class="dbg-value @(Result.FaceDetected ? "dbg-ok" : "dbg-warn")">
+            @(Result.FaceDetected ? "YES" : "NO")
+        </span>
+
+        <span class="dbg-label">Confidence</span>
+        <span class="dbg-value">@((Result.RawConfidence * 100).ToString("0"))%</span>
+
+        @if (Result.FaceDetected)
+        {
+            <span class="dbg-label">Detection</span>
+            <span class="dbg-value">@((Result.DetectionConfidence * 100).ToString("0"))%</span>
+
+            <span class="dbg-label">Landmark</span>
+            <span class="dbg-value">@((Result.LandmarkingConfidence * 100).ToString("0"))%</span>
+
+            <span class="dbg-label">Pose valid</span>
+            <span class="dbg-value @(Result.HeadPoseValid ? "dbg-ok" : "dbg-warn")">
+                @(Result.HeadPoseValid ? "YES" : "NO")
+            </span>
+
+            @if (Result.HeadPoseYaw.HasValue)
+            {
+                <span class="dbg-label">Yaw</span>
+                <span class="dbg-value">@(Result.HeadPoseYaw.Value.ToString("0.0"))°</span>
+            }
+            @if (Result.HeadPosePitch.HasValue)
+            {
+                <span class="dbg-label">Pitch</span>
+                <span class="dbg-value">@(Result.HeadPosePitch.Value.ToString("0.0"))°</span>
+            }
+            @if (Result.HeadPoseRoll.HasValue)
+            {
+                <span class="dbg-label">Roll</span>
+                <span class="dbg-value">@(Result.HeadPoseRoll.Value.ToString("0.0"))°</span>
+            }
+
+            <span class="dbg-label">Quality</span>
+            <span class="dbg-value">@Result.QualityLabel</span>
+
+            <span class="dbg-label">Joy</span>
+            <span class="dbg-value @(Result.JoyLikelihood is "High" or "Medium" ? "dbg-ok" : "")">@Result.JoyLikelihood</span>
+
+            <span class="dbg-label">Sorrow</span>
+            <span class="dbg-value @(Result.SorrowLikelihood is "High" or "Medium" ? "dbg-warn" : "")">@Result.SorrowLikelihood</span>
+
+            <span class="dbg-label">Anger</span>
+            <span class="dbg-value @(Result.AngerLikelihood is "High" or "Medium" ? "dbg-warn" : "")">@Result.AngerLikelihood</span>
+
+            <span class="dbg-label">Surprise</span>
+            <span class="dbg-value @(Result.SurpriseLikelihood is "High" or "Medium" ? "dbg-ok" : "")">@Result.SurpriseLikelihood</span>
+
+            @if (Result.HeadwearLikelihood is "High" or "Medium" or "Low")
+            {
+                <span class="dbg-label">Headwear</span>
+                <span class="dbg-value dbg-warn">@Result.HeadwearLikelihood</span>
+            }
+            @if (!string.IsNullOrEmpty(Result.BlurLevel) && Result.BlurLevel != "None")
+            {
+                <span class="dbg-label">Blur</span>
+                <span class="dbg-value @(Result.BlurLevel == "High" ? "dbg-warn" : "")">@Result.BlurLevel</span>
+            }
+            @if (!string.IsNullOrEmpty(Result.ExposureLevel))
+            {
+                <span class="dbg-label">Exposure</span>
+                <span class="dbg-value @(Result.ExposureLevel == "GoodExposure" ? "dbg-ok" : "dbg-warn")">@Result.ExposureLevel</span>
+            }
+        }
+    </div>
+
+    @if (!Result.FaceDetected)
+    {
+        <p class="face-hint">No face detected — check lighting &amp; camera</p>
+    }
+    else if (!Result.HeadPoseValid)
+    {
+        <p class="face-hint">Head angle too large — keep head centered</p>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public RoundResult? Result { get; set; }
+}

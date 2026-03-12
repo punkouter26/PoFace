@@ -1,0 +1,63 @@
+sequenceDiagram
+  autonumber
+  actor Player as Player (Browser)
+  participant MSAL as MSAL.js / Entra ID
+  participant Client as Blazor WASM Client
+  participant API as PoFace API (App Service)
+  participant Vision as Google Cloud Vision
+  participant Blob as Azure Blob Storage
+  participant Table as Azure Table Storage
+
+  note over Player,MSAL: ── AUTHENTICATION (Optional) ──
+  Player->>+MSAL: Click "Login"
+  MSAL-->>-Player: Redirect → Entra ID login page
+  Player->>+MSAL: Credentials submitted
+  MSAL-->>-Client: OIDC redirect with ID token + access token
+  Client->>Client: Store token; OptionalAccessTokenHandler attaches on requests
+
+  note over Player,Table: ── GAME SESSION START ──
+  Player->>+Client: Click "Start Game"
+  Client->>+API: POST /api/sessions  [Bearer token optional]
+  API->>+Table: Insert GameSessionEntity (Incomplete)
+  Table-->>-API: OK
+  API-->>-Client: { sessionId, rounds[5 emotions] }
+  Client-->>-Player: Show Round 1 — Target: Happiness 😄
+
+  note over Player,Table: ── ROUND LOOP (×5) ──
+  loop For each round 1–5
+    Player->>+Client: Webcam frame captured (countdown → shutter)
+    Client->>Client: GameOrchestrator FSM: Capturing → Analyzing
+    Client->>+API: POST /api/sessions/{id}/rounds/{n}/score  (JPEG, max 500 KB)
+    API->>+Vision: Annotate image — FaceDetection features
+    Vision-->>-API: FaceAnnotation (Joy/Anger/Surprise/Sorrow/Fear likelihoods + headpose)
+    API->>API: HeadPoseValidator (|yaw|≤20°, |pitch|≤20°)
+    API->>API: Score = confidence → 0–10 (clamped)
+    API->>+Blob: PutBlob poface-captures/{sessionId}_{round}.jpg
+    Blob-->>-API: Blob URL
+    API->>+Table: Insert RoundCaptureEntity
+    Table-->>-API: OK
+    API-->>-Client: { score, emotion, confidence, imageUrl }
+    Client-->>-Player: ScoreReveal overlay (2 s)
+  end
+
+  note over Player,Table: ── SESSION COMPLETE ──
+  Client->>+API: POST /api/sessions/{id}/complete
+  API->>+Table: Read 5 RoundCaptureEntities → sum TotalScore
+  Table-->>-API: Round data
+  API->>API: IsPersonalBest? Compare LeaderboardEntity
+  API->>+Table: Update GameSessionEntity (IsCompleted, TotalScore, IsPersonalBest)
+  Table-->>-API: OK
+  opt Authenticated + IsPersonalBest
+    API->>+Table: Upsert LeaderboardEntity (Year partition)
+    Table-->>-API: OK
+  end
+  API-->>-Client: { totalScore, isPersonalBest, recapUrl }
+  Client-->>-Player: Game Over screen — score + recap link
+
+  note over Player,Table: ── RECAP VIEW ──
+  Player->>+Client: Open /recap/{sessionId}
+  Client->>+API: GET /api/recap/{sessionId}
+  API->>+Table: Query RoundCaptureEntities by sessionId
+  Table-->>-API: 5 round entities
+  API-->>-Client: { rounds[{ score, imageUrl, emotion }], totalScore }
+  Client-->>-Player: Round gallery with images and scores

@@ -1,9 +1,0 @@
-{
-  "spa": {
-    "redirectUris": [
-      "https://localhost:7224/authentication/login-callback",
-      "http://localhost:5231/authentication/login-callback",
-      "http://localhost:5000/authentication/login-callback"
-    ]
-  }
-}

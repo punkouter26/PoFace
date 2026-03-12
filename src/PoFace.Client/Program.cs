@@ -50,6 +50,6 @@ builder.Services.AddScoped<ApiClient>(sp => new ApiClient(sp.GetRequiredService<
 builder.Services.AddScoped<AudioService>();
 builder.Services.AddScoped<GameOrchestrator>();
 builder.Services.AddScoped<IRadzenThemeBridge, RadzenThemeBridge>();
-builder.Services.AddScoped<PoFace.Client.Shared.ThemeService>();
+builder.Services.AddScoped<PoFace.Client.Services.ThemeService>();
 
 await builder.Build().RunAsync();

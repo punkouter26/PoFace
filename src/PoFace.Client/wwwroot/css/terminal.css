@@ -4,6 +4,26 @@
     --accent: #39ff14;
 }
 
+/* ── Typography ────────────────────────────────────────────────────────────── */
+
+h1, h2, h3 {
+    font-family: 'VT323', 'Courier New', monospace;
+    color: var(--color-primary);
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+}
+
+h1 { font-size: 2.6rem; }
+h2 { font-size: 1.9rem; }
+h3 { font-size: 1.4rem; }
+
+/* ── Rank color utilities (Leaderboard) ────────────────────────────────────── */
+
+.rank-gold   { color: #FFD700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.55); }
+.rank-silver { color: #C0C0C0; text-shadow: 0 0 6px rgba(192, 192, 192, 0.45); }
+.rank-bronze { color: #CD7F32; text-shadow: 0 0 6px rgba(205, 127, 50, 0.45); }
+
 html,
 body {
     margin: 0;
@@ -58,9 +78,26 @@ textarea {
     text-shadow: 0 0 6px #00ff00;
 }
 
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+.status-dot.status-ok   { background: #00ff00; }
+.status-dot.status-fail { background: #ff2b2b; }
+
+.status-msg {
+    opacity: 0.65;
+    font-size: 0.85em;
+}
+
 .panel {
-    border: 1px solid #00aa00;
-    background: rgba(0, 16, 0, 0.55);
+    border: 1px solid rgba(0, 200, 0, 0.28);
+    background: rgba(0, 20, 0, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     padding: 1rem;
 }
 

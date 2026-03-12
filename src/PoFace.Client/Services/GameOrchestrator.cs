@@ -41,7 +41,8 @@ public sealed record RoundResult(
     string  AngerLikelihood,
     string  SurpriseLikelihood,
     string  BlurLevel,
-    string  ExposureLevel);
+    string  ExposureLevel,
+    bool    IsNetworkError = false);
 
 /// <summary>
 /// Drives the 5-round game state machine for the Arena page.
@@ -102,8 +103,6 @@ public sealed class GameOrchestrator : IAsyncDisposable
         {
             CountdownTick = tick;
             Notify();
-            await _audio.PlayBlipAsync(tick);
-            await _audio.VibrateDeviceAsync([80]);
             await Task.Delay(1_000, ct);
         }
 
@@ -120,6 +119,7 @@ public sealed class GameOrchestrator : IAsyncDisposable
         await TransitionAsync(GameState.Analyzing);
 
         ScoreRoundResponse roundResult;
+        var networkError = false;
         try
         {
             roundResult = await _api.ScoreRoundAsync(SessionId!, CurrentRound, jpegBytes, ct);
@@ -127,9 +127,9 @@ public sealed class GameOrchestrator : IAsyncDisposable
         catch
         {
             // Network / server failure → score 0 so the game can finish.
+            networkError = true;
             roundResult = new ScoreRoundResponse(CurrentRound, CurrentTargetEmotion ?? "", 0, 0, "Unknown",
-                false, null, null, null, false, "",
-                0, 0, "", "", "", "", "", "", "");
+                false, null, null, null, false, "", null);
         }
 
         if (roundResult.Score >= 8)
@@ -147,15 +147,16 @@ public sealed class GameOrchestrator : IAsyncDisposable
             roundResult.HeadPoseYaw,
             roundResult.HeadPosePitch,
             roundResult.HeadPoseRoll,
-            roundResult.DetectionConfidence,
-            roundResult.LandmarkingConfidence,
-            roundResult.HeadwearLikelihood,
-            roundResult.JoyLikelihood,
-            roundResult.SorrowLikelihood,
-            roundResult.AngerLikelihood,
-            roundResult.SurpriseLikelihood,
-            roundResult.BlurLevel,
-            roundResult.ExposureLevel));
+            roundResult.Diagnostics?.DetectionConfidence   ?? 0,
+            roundResult.Diagnostics?.LandmarkingConfidence ?? 0,
+            roundResult.Diagnostics?.HeadwearLikelihood    ?? "",
+            roundResult.Diagnostics?.JoyLikelihood         ?? "",
+            roundResult.Diagnostics?.SorrowLikelihood      ?? "",
+            roundResult.Diagnostics?.AngerLikelihood       ?? "",
+            roundResult.Diagnostics?.SurpriseLikelihood    ?? "",
+            roundResult.Diagnostics?.BlurLevel             ?? "",
+            roundResult.Diagnostics?.ExposureLevel         ?? "",
+            IsNetworkError: networkError));
 
         await TransitionAsync(GameState.ScoreReveal);
         await Task.Delay(2_000, ct);

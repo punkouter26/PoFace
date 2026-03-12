@@ -50,6 +50,20 @@ public sealed class GetRecapQueryTests
     }
 
     [Fact]
+    public async Task IncompleteSession_ReturnsIncomplete()
+    {
+        var session = BuildSession(isCompleted: false);
+        _sessionLookup.Setup(s => s.GetBySessionIdAsync(session.SessionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(session);
+
+        var sut = CreateHandler();
+        var result = await sut.Handle(new GetRecapQuery(session.SessionId), CancellationToken.None);
+
+        result.Status.Should().Be(RecapStatus.Incomplete);
+        result.Recap.Should().BeNull();
+    }
+
+    [Fact]
     public async Task SessionNotFound_ReturnsNotFound()
     {
         _sessionLookup.Setup(s => s.GetBySessionIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -86,20 +100,24 @@ public sealed class GetRecapQueryTests
         result.Recap!.Rounds[1].ImageUrl.Should().Be(BlobImageRepository.PlaceholderImageUrl);
     }
 
-    private static GameSessionEntity BuildSession(DateTimeOffset? expiresAt = null, bool isPersonalBest = true)
+    private static GameSessionEntity BuildSession(
+        DateTimeOffset? expiresAt = null,
+        bool isPersonalBest = true,
+        bool isCompleted = true)
     {
         var id = Guid.NewGuid().ToString("N");
         return new GameSessionEntity
         {
-            PartitionKey = "user-1",
-            RowKey = id,
-            SessionId = id,
-            UserId = "user-1",
-            DisplayName = "User",
-            TotalScore = 31,
+            PartitionKey   = "user-1",
+            RowKey         = id,
+            SessionId      = id,
+            UserId         = "user-1",
+            DisplayName    = "User",
+            TotalScore     = 31,
             IsPersonalBest = isPersonalBest,
-            CompletedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = expiresAt,
+            IsCompleted    = isCompleted,
+            CompletedAt    = DateTimeOffset.UtcNow,
+            ExpiresAt      = expiresAt,
         };
     }
 

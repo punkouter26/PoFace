@@ -47,14 +47,23 @@ export const test = base.extend<{
     },
 
     // Override the default `page` fixture to always add the auth headers.
+    // Uses page.route() — not extraHTTPHeaders — so headers are injected ONLY for
+    // same-origin /api/* requests and never sent to external CDNs (e.g. Google Fonts),
+    // which would trigger CORS preflight failures and console error noise.
     page: async ({ browser, authOptions }, use) => {
-        const context: BrowserContext = await browser.newContext({
-            extraHTTPHeaders: {
-                'X-Test-User-Id':      authOptions.testUserId,
-                'X-Test-Display-Name': authOptions.testDisplayName,
-            },
-        });
+        const context: BrowserContext = await browser.newContext();
         const page: Page = await context.newPage();
+
+        await page.route('**/api/**', async route => {
+            await route.continue({
+                headers: {
+                    ...route.request().headers(),
+                    'X-Test-User-Id':      authOptions.testUserId,
+                    'X-Test-Display-Name': authOptions.testDisplayName,
+                },
+            });
+        });
+
         await use(page);
         await context.close();
     },

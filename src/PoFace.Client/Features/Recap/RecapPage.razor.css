@@ -1,0 +1,68 @@
+.recap-meta {
+    font-size: 0.8rem;
+    opacity: 0.5;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+}
+
+.recap-total {
+    font-size: 1rem;
+    margin: 0.5rem 0 0;
+    letter-spacing: 0.04em;
+}
+
+.recap-pb {
+    color: #FFD700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    letter-spacing: 0.1em;
+}
+
+.recap-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    padding: 1.25rem 0 0.5rem;
+    border-top: 1px solid rgba(0, 255, 0, 0.15);
+    margin-top: 1.5rem;
+}
+
+.recap-pb-notice {
+    width: 100%;
+    font-size: 0.85rem;
+    color: #FFD700;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+    letter-spacing: 0.1em;
+    margin: 0 0 0.25rem;
+}
+
+.recap-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 10rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.25rem;
+    border: 1px solid rgba(0, 255, 0, 0.6);
+    background: transparent;
+    color: #00ff00;
+    text-decoration: none;
+    font-family: "Courier New", Courier, monospace;
+    letter-spacing: 0.1em;
+    font-size: 0.85rem;
+    transition: background 0.15s;
+}
+
+.recap-action-btn:hover {
+    background: rgba(0, 255, 0, 0.1);
+    color: #00ff00;
+}
+
+.recap-action-secondary {
+    border-color: rgba(0, 255, 0, 0.3);
+    opacity: 0.75;
+}
+
+.recap-action-secondary:hover {
+    opacity: 1;
+}

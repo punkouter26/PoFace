@@ -1,0 +1,9 @@
+<div class="terminal-spinner" role="status">
+    <span class="ts-prompt" aria-hidden="true">&gt;_</span>
+    <span class="ts-text" aria-label="@(Message ?? "Loading")">@(Message ?? "LOADING...")</span>
+    <span class="ts-cursor" aria-hidden="true">█</span>
+</div>
+
+@code {
+    [Parameter] public string? Message { get; set; }
+}

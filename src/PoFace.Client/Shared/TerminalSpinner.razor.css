@@ -1,0 +1,28 @@
+.terminal-spinner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+    color: #00ff00;
+    letter-spacing: 0.1em;
+    font-family: "Courier New", Courier, monospace;
+}
+
+.ts-prompt {
+    color: rgba(0, 255, 0, 0.45);
+    font-size: 0.9rem;
+}
+
+.ts-text {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.ts-cursor {
+    animation: ts-blink 1s step-end infinite;
+}
+
+@keyframes ts-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}

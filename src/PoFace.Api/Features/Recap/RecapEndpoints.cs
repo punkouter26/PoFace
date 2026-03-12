@@ -25,7 +25,12 @@ public static class RecapEndpoints
 
         return result.Status switch
         {
-            RecapStatus.NotFound => Results.NotFound(),
+            RecapStatus.NotFound   => Results.NotFound(),
+
+            RecapStatus.Incomplete => Results.Problem(
+                statusCode: 404,
+                title:      "Not Found",
+                detail:     "This session has not been completed yet."),
 
             RecapStatus.Gone => Results.Problem(
                 statusCode: 410,

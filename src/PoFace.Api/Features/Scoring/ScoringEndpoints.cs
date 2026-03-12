@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using PoFace.Api.Features.Recap;
 
 namespace PoFace.Api.Features.Scoring;
@@ -26,6 +27,7 @@ public static class ScoringEndpoints
         IFormFile? image,
         IMediator mediator,
         IGameSessionLookupService sessionLookup,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         // ── Validation ────────────────────────────────────────────────────────
@@ -65,6 +67,15 @@ public static class ScoringEndpoints
         if (session is null)
             return Results.NotFound();
 
+        // Ownership guard — authenticated sessions may only be scored by their owner (OWASP A01).
+        if (session.IsAuthenticatedUser)
+        {
+            var callerId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                        ?? user.FindFirstValue("sub");
+            if (!string.Equals(callerId, session.UserId, StringComparison.Ordinal))
+                return Results.Forbid();
+        }
+
         // Derive target emotion from round number (canonical order per FR-009).
         var targetEmotion = RoundEmotions.ForRound(roundNumber);
 
@@ -77,11 +88,4 @@ public static class ScoringEndpoints
     }
 }
 
-/// <summary>Canonical 5-round emotion sequence (FR-009 — order MUST NOT be shuffled).</summary>
-internal static class RoundEmotions
-{
-    private static readonly string[] Order =
-        ["Happiness", "Surprise", "Anger", "Sadness", "Fear"];
 
-    public static string ForRound(int roundNumber) => Order[roundNumber - 1];
-}

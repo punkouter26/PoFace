@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace PoFace.Client.Shared;
+namespace PoFace.Client.Services;
 
 public interface IRadzenThemeBridge
 {
@@ -43,9 +43,6 @@ public sealed class ThemeService
 
     public async Task ApplyTerminalVariablesAsync()
     {
-        await _js.InvokeVoidAsync("eval",
-            "document.documentElement.style.setProperty('--color-primary', '#00ff00');" +
-            "document.documentElement.style.setProperty('--color-bg', '#0a0a0a');" +
-            "document.documentElement.style.setProperty('--accent', '#39ff14');");
+        await _js.InvokeVoidAsync("setTerminalVars");
     }
 }

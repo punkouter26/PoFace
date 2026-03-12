@@ -9,7 +9,7 @@
 
 @if (_loading)
 {
-    <p>Loading...</p>
+    <TerminalSpinner Message="FETCHING SCORES..." />
 }
 else if (_errorMessage is not null)
 {
@@ -21,10 +21,22 @@ else
 
     <RadzenDataGrid Data="@_entries" TItem="LeaderboardEntryDto" AllowSorting="true">
         <Columns>
-            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="Rank"        Title="#"       Width="60px" />
-            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="DisplayName" Title="Player" />
-            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="TotalScore"  Title="Score"   Width="90px" />
-            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="DeviceType"  Title="Device"  Width="100px">
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="Rank" Title="#" Width="60px">
+                <Template Context="entry">
+                    <span class="@GetRankClass(entry.Rank)">@entry.Rank</span>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="DisplayName" Title="Player">
+                <Template Context="entry">
+                    <span class="@GetRankClass(entry.Rank)">@entry.DisplayName</span>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="TotalScore" Title="Score" Width="90px">
+                <Template Context="entry">
+                    <strong class="@GetRankClass(entry.Rank)">@entry.TotalScore</strong>
+                </Template>
+            </RadzenDataGridColumn>
+            <RadzenDataGridColumn TItem="LeaderboardEntryDto" Property="DeviceType" Title="Device" Width="100px">
                 <Template Context="entry">
                     @(entry.DeviceType == "Mobile" ? "📱" : "🖥️") @entry.DeviceType
                 </Template>
@@ -46,6 +58,14 @@ else
     private string?            _errorMessage;
     private string             _year     = string.Empty;
     private List<LeaderboardEntryDto> _entries = [];
+
+    private static string GetRankClass(int rank) => rank switch
+    {
+        1 => "rank-gold",
+        2 => "rank-silver",
+        3 => "rank-bronze",
+        _ => string.Empty,
+    };
 
     protected override async Task OnInitializedAsync()
     {

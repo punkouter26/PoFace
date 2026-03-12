@@ -49,6 +49,15 @@ public sealed class CompleteSessionHandler : IRequestHandler<CompleteSessionComm
             "GameSessions", command.UserId, command.SessionId, cancellationToken)
             ?? throw new InvalidOperationException($"Session {command.SessionId} not found.");
 
+        // Idempotency guard — return stored result if already completed.
+        if (session.IsCompleted)
+        {
+            _logger.LogInformation(
+                "Session completion idempotent -> SessionId={SessionId}, TotalScore={TotalScore}",
+                command.SessionId, session.TotalScore);
+            return new CompleteSessionResult(command.SessionId, session.TotalScore, session.IsPersonalBest, $"/recap/{command.SessionId}");
+        }
+
         // Sum scores from the 5 RoundCapture entities.
         int totalScore = 0;
         var roundBreakdown = new List<string>(RoundCount);

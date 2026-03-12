@@ -1,26 +1,28 @@
 ﻿@inherits LayoutComponentBase
 @inject AuthenticationStateProvider AuthStateProvider
-@inject PoFace.Client.Shared.ThemeService ThemeService
+@inject PoFace.Client.Services.ThemeService ThemeService
 
 <div class="terminal-shell">
     <header class="terminal-header panel glow">
-        <pre class="ascii-logo" aria-label="PoFace logo">POFACE::ARCADE</pre>
+        <span class="header-brand" aria-label="PoFace logo">PoFace<span class="brand-sep">::</span>Arcade</span>
         <div class="status-line">
             <AuthorizeView>
                 <Authorized>
-                    <span>Operator: @(context.User.Identity?.Name ?? "authenticated-user")</span>
+                    <span class="operator-identity">
+                        Operator: @(context.User.Identity?.Name ?? context.User.FindFirst("preferred_username")?.Value ?? "authenticated-user")
+                        <a href="authentication/logout" class="header-logout-link">[logout]</a>
+                    </span>
                 </Authorized>
                 <NotAuthorized>
-                    <span>Operator: anonymous</span>
+                    <span>Operator: anonymous &mdash; <a href="authentication/login" class="header-login-link">sign in</a></span>
                 </NotAuthorized>
             </AuthorizeView>
             <span class="status-active">SYSTEM ONLINE</span>
         </div>
         <nav class="terminal-nav" aria-label="Primary">
-            <a href="/">Home</a>
-            <a href="/arena">Arena</a>
-            <a href="/leaderboard">Leaderboard</a>
-            <a href="/diag">PoVerify</a>
+            <NavLink href="/" Match="NavLinkMatch.All" ActiveClass="nav-active">Home</NavLink>
+            <NavLink href="/arena" ActiveClass="nav-active">Arena</NavLink>
+            <NavLink href="/leaderboard" ActiveClass="nav-active">Leaderboard</NavLink>
         </nav>
     </header>
 
@@ -30,9 +32,6 @@
         </article>
     </main>
 
-    <footer class="terminal-footer panel">
-        <a href="/diag">PoVerify Diagnostics</a>
-    </footer>
 </div>
 
 @code {

@@ -100,10 +100,12 @@ test.describe('Leaderboard', () => {
         page,
         request,
     }) => {
-        const userId      = `e2e-lb-${Date.now()}`;
+        // Generous timeout: 10 scoring API calls under concurrent game-loop load can take ~60 s.
+        test.setTimeout(90_000);
+        const userId      = `e2e-lb-${crypto.randomUUID()}`;
         // Unique display name prevents cross-test row count pollution when parallel
         // runs insert entries with the same name before the UI assertion fires.
-        const displayName = `LBUser-${Date.now()}`;
+        const displayName = `LBUser-${crypto.randomUUID()}`;
 
         // Session 1 — stub returns 0 for all rounds; this becomes the personal best.
         const sessionId1 = await startSession(request, userId, displayName);
@@ -137,8 +139,9 @@ test.describe('Leaderboard', () => {
 
         // ── Assert leaderboard page shows exactly one entry for this user ─────
         await page.goto('/leaderboard');
-        // Wait for React/Blazor to render (spinner gone).
-        await expect(page.getByText(displayName)).toBeVisible({ timeout: 15_000 });
+        // Wait for Blazor to render; allow 45 s to account for server load from
+        // concurrent game-loop tests running in a separate serial describe block.
+        await expect(page.getByText(displayName)).toBeVisible({ timeout: 45_000 });
 
         // The user should appear exactly once.
         const rows = page.locator(`td:has-text("${displayName}")`);

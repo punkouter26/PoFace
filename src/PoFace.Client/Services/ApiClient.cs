@@ -104,24 +104,26 @@ public sealed record LeaderboardEntryDto(
     [property: JsonPropertyName("achievedAt")]   string AchievedAt);
 
 public sealed record ScoreRoundResponse(
-    [property: JsonPropertyName("roundNumber")]              int     RoundNumber,
-    [property: JsonPropertyName("targetEmotion")]            string  TargetEmotion,
-    [property: JsonPropertyName("score")]                    int     Score,
-    [property: JsonPropertyName("rawConfidence")]            double  RawConfidence,
-    [property: JsonPropertyName("qualityLabel")]             string  QualityLabel,
-    [property: JsonPropertyName("headPoseValid")]            bool    HeadPoseValid,
-    [property: JsonPropertyName("headPoseYaw")]              double? HeadPoseYaw,
-    [property: JsonPropertyName("headPosePitch")]            double? HeadPosePitch,
-    [property: JsonPropertyName("headPoseRoll")]             double? HeadPoseRoll,
-    [property: JsonPropertyName("faceDetected")]             bool    FaceDetected,
-    [property: JsonPropertyName("imageUrl")]                 string  ImageUrl,
-    // Google Cloud Vision attributes
-    [property: JsonPropertyName("detectionConfidence")]      double  DetectionConfidence,
-    [property: JsonPropertyName("landmarkingConfidence")]    double  LandmarkingConfidence,
-    [property: JsonPropertyName("headwearLikelihood")]       string  HeadwearLikelihood,
-    [property: JsonPropertyName("joyLikelihood")]            string  JoyLikelihood,
-    [property: JsonPropertyName("sorrowLikelihood")]         string  SorrowLikelihood,
-    [property: JsonPropertyName("angerLikelihood")]          string  AngerLikelihood,
-    [property: JsonPropertyName("surpriseLikelihood")]       string  SurpriseLikelihood,
-    [property: JsonPropertyName("blurLevel")]                string  BlurLevel,
-    [property: JsonPropertyName("exposureLevel")]            string  ExposureLevel);
+    [property: JsonPropertyName("roundNumber")]   int     RoundNumber,
+    [property: JsonPropertyName("targetEmotion")] string  TargetEmotion,
+    [property: JsonPropertyName("score")]         int     Score,
+    [property: JsonPropertyName("rawConfidence")] double  RawConfidence,
+    [property: JsonPropertyName("qualityLabel")]  string  QualityLabel,
+    [property: JsonPropertyName("headPoseValid")] bool    HeadPoseValid,
+    [property: JsonPropertyName("headPoseYaw")]   double? HeadPoseYaw,
+    [property: JsonPropertyName("headPosePitch")] double? HeadPosePitch,
+    [property: JsonPropertyName("headPoseRoll")]  double? HeadPoseRoll,
+    [property: JsonPropertyName("faceDetected")]  bool    FaceDetected,
+    [property: JsonPropertyName("imageUrl")]      string  ImageUrl,
+    [property: JsonPropertyName("diagnostics")]   ScoreRoundDiagnosticsDto? Diagnostics);
+
+public sealed record ScoreRoundDiagnosticsDto(
+    [property: JsonPropertyName("detectionConfidence")]   double DetectionConfidence,
+    [property: JsonPropertyName("landmarkingConfidence")] double LandmarkingConfidence,
+    [property: JsonPropertyName("headwearLikelihood")]    string HeadwearLikelihood,
+    [property: JsonPropertyName("joyLikelihood")]         string JoyLikelihood,
+    [property: JsonPropertyName("sorrowLikelihood")]      string SorrowLikelihood,
+    [property: JsonPropertyName("angerLikelihood")]       string AngerLikelihood,
+    [property: JsonPropertyName("surpriseLikelihood")]    string SurpriseLikelihood,
+    [property: JsonPropertyName("blurLevel")]             string BlurLevel,
+    [property: JsonPropertyName("exposureLevel")]         string ExposureLevel);

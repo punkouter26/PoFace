@@ -1,37 +1,51 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "poface: stop stale api",
-      "type": "shell",
-      "command": "$targets = Get-CimInstance -ClassName Win32_Process | Where-Object { (($_.Name -eq 'dotnet.exe') -or ($_.Name -eq 'PoFace.Api.exe')) -and $_.CommandLine -match 'PoFace.Api' }; if ($targets) { $targets | ForEach-Object { Stop-Process -Id $_.ProcessId -Force } }",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "never",
-        "panel": "dedicated"
-      }
-    },
-    {
-      "label": "poface: build api",
-      "type": "shell",
-      "command": "dotnet",
-      "args": [
-        "build",
-        "${workspaceFolder}/src/PoFace.Api/PoFace.Api.csproj"
-      ],
-      "problemMatcher": [
-        "$msCompile"
-      ],
-      "group": "build"
-    },
-    {
-      "label": "poface: prepare debug",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "poface: stop stale api",
-        "poface: build api"
-      ],
-      "problemMatcher": []
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "poface: stop stale api",
+			"type": "shell",
+			"command": "$targets = Get-CimInstance -ClassName Win32_Process | Where-Object { (($_.Name -eq 'dotnet.exe') -or ($_.Name -eq 'PoFace.Api.exe')) -and $_.CommandLine -match 'PoFace.Api' }; if ($targets) { $targets | ForEach-Object { Stop-Process -Id $_.ProcessId -Force } }",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "never",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "poface: build api",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"${workspaceFolder}/src/PoFace.Api/PoFace.Api.csproj"
+			],
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "poface: prepare debug",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"poface: stop stale api",
+				"poface: build api"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "poface: watch api",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"watch",
+				"--project",
+				"src/PoFace.Api/PoFace.Api.csproj"
+			],
+			"isBackground": true,
+			"problemMatcher": [
+				"$msCompile"
+			]
+		}
+	]
 }

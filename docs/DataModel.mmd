@@ -1,0 +1,58 @@
+erDiagram
+  PLAYER {
+    string UserId PK "RowKey (hex-sharded PK)"
+    string DisplayName
+    dateTimeOffset LastSeenAt
+  }
+
+  GAME_SESSION {
+    string SessionId PK "RowKey"
+    string UserId FK "PartitionKey"
+    string DisplayName
+    string DeviceType "Desktop | Mobile"
+    bool IsAuthenticatedUser
+    bool IsCompleted
+    int TotalScore "0–50"
+    bool IsPersonalBest
+    dateTimeOffset StartedAt
+    dateTimeOffset CompletedAt "nullable"
+    dateTimeOffset ExpiresAt "nullable — 1 day TTL for non-best"
+  }
+
+  ROUND_CAPTURE {
+    string RowKey PK "sessionId_roundNumber"
+    string SessionId FK "PartitionKey"
+    int RoundNumber "1–5"
+    string TargetEmotion "Happiness|Surprise|Anger|Sadness|Fear"
+    int Score "0–10"
+    double RawConfidence "Google Vision likelihood 0.0–1.0"
+    double HeadPoseYaw "degrees"
+    double HeadPosePitch "degrees"
+    bool HeadPoseValid "abs(yaw)≤20 AND abs(pitch)≤20"
+    string ImageBlobUrl "URL in poface-captures container"
+    dateTimeOffset CapturedAt
+  }
+
+  LEADERBOARD {
+    string UserId PK "RowKey"
+    string Year FK "PartitionKey e.g. 2026"
+    string DisplayName
+    int TotalScore "personal best for the year"
+    string SessionId FK "best session reference"
+    string RecapUrl "shareable recap link"
+    string DeviceType
+    dateTimeOffset AchievedAt
+  }
+
+  BLOB_CAPTURE {
+    string BlobName PK "sessionId_roundNumber.jpg"
+    string Container "poface-captures"
+    binary Data "JPEG frame ≤500 KB"
+    string ContentType "image/jpeg"
+  }
+
+  PLAYER ||--o{ GAME_SESSION : "plays"
+  GAME_SESSION ||--|{ ROUND_CAPTURE : "has 5 rounds"
+  ROUND_CAPTURE ||--|| BLOB_CAPTURE : "references 1 JPEG"
+  PLAYER ||--o| LEADERBOARD : "has personal best"
+  GAME_SESSION ||--o| LEADERBOARD : "best session recorded in"

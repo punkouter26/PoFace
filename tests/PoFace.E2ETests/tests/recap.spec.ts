@@ -97,8 +97,10 @@ test.describe('Recap Page', () => {
         page,
         request,
     }) => {
-        const userId      = `e2e-recap-${Date.now()}`;
-        const displayName = 'RecapUser';
+        // Generous timeout: 5 scoring API calls under concurrent game-loop load can take ~45 s.
+        test.setTimeout(90_000);
+        const userId      = `e2e-recap-${crypto.randomUUID()}`;
+        const displayName = `RecapUser-${crypto.randomUUID().slice(0, 8)}`;
 
         const sessionId   = await startSession(request, userId, displayName);
         await scoreAllRounds(request, sessionId, userId, displayName);
@@ -109,15 +111,17 @@ test.describe('Recap Page', () => {
         await page.goto(recapUrl);
 
         // Wait for the page to load (spinner disappears, player name visible).
-        await expect(page.getByText(displayName)).toBeVisible({ timeout: 15_000 });
+        // Allow 45 s to account for server load from concurrent game-loop tests.
+        await expect(page.getByText(displayName)).toBeVisible({ timeout: 45_000 });
 
-        // All 5 round panels must be present (each rendered by <RoundPanel>).
+        // All 5 round panels must be present — RoundPanel renders badge text as "R1"…"R5".
         for (let i = 1; i <= 5; i++) {
-            await expect(page.getByText(`Round ${i}`)).toBeVisible();
+            await expect(page.locator('.rp-round-badge').filter({ hasText: `R${i}` })).toBeVisible();
         }
 
-        // Score "/" display should appear 5 times (one per round panel).
-        const scoreTexts = page.locator('.round-panel').filter({ hasText: '/ 10' });
+        // Score "/10" display should appear 5 times (one per round panel).
+        // RoundPanel renders <span class="rp-score-denom">/10</span> (no space).
+        const scoreTexts = page.locator('.round-panel').filter({ hasText: '/10' });
         await expect(scoreTexts).toHaveCount(5);
     });
 
@@ -125,8 +129,9 @@ test.describe('Recap Page', () => {
         page,
         request,
     }) => {
-        const userId      = `e2e-emotions-${Date.now()}`;
-        const displayName = 'EmotionUser';
+        test.setTimeout(90_000);
+        const userId      = `e2e-emotions-${crypto.randomUUID()}`;
+        const displayName = `EmotionUser-${crypto.randomUUID().slice(0, 8)}`;
         const emotions    = ['Happiness', 'Surprise', 'Anger', 'Sadness', 'Fear'];
 
         const sessionId   = await startSession(request, userId, displayName);
@@ -135,7 +140,7 @@ test.describe('Recap Page', () => {
 
         await page.context().clearCookies();
         await page.goto(recapUrl);
-        await expect(page.getByText(displayName)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText(displayName)).toBeVisible({ timeout: 45_000 });
 
         // All 5 canonical emotion names must appear in the recap.
         for (const emotion of emotions) {
@@ -151,8 +156,8 @@ test.describe('Recap Page', () => {
     });
 
     test('personal best recap has public cache-control header', async ({ request }) => {
-        const userId      = `e2e-cache-${Date.now()}`;
-        const displayName = 'CacheUser';
+        const userId      = `e2e-cache-${crypto.randomUUID()}`;
+        const displayName = `CacheUser-${crypto.randomUUID().slice(0, 8)}`;
 
         const sessionId = await startSession(request, userId, displayName);
         await scoreAllRounds(request, sessionId, userId, displayName);

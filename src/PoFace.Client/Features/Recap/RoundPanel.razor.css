@@ -1,0 +1,85 @@
+.round-panel {
+    border: 1px solid rgba(0, 170, 0, 0.5);
+    background: rgba(0, 16, 0, 0.55);
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.rp-image-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.rp-image {
+    display: block;
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    opacity: 0.85;
+    filter: saturate(0.6) brightness(0.85);
+}
+
+.rp-round-badge {
+    position: absolute;
+    top: 0.4rem;
+    left: 0.4rem;
+    background: rgba(0, 0, 0, 0.78);
+    border: 1px solid rgba(0, 255, 0, 0.45);
+    color: #00ff00;
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    padding: 0.15rem 0.45rem;
+}
+
+.rp-body {
+    padding: 0.65rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1;
+}
+
+.rp-title {
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    color: rgba(0, 255, 0, 0.7);
+    text-transform: uppercase;
+}
+
+.rp-score {
+    line-height: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
+}
+
+.rp-score-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #00ff00;
+    text-shadow: 0 0 8px rgba(0, 255, 0, 0.55);
+}
+
+.rp-score-denom {
+    font-size: 0.7rem;
+    opacity: 0.45;
+}
+
+.rp-pose {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.rp-pose-ok   { color: #00ff00; }
+.rp-pose-fail { color: #ff5555; }
+
+.rp-time {
+    font-size: 0.6rem;
+    opacity: 0.4;
+    letter-spacing: 0.06em;
+    margin-top: auto;
+    padding-top: 0.25rem;
+}

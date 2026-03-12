@@ -103,4 +103,11 @@
         playSuccessChime,
         vibrateDevice
     };
+
+    window.setTerminalVars = function () {
+        var root = document.documentElement.style;
+        root.setProperty('--color-primary', '#00ff00');
+        root.setProperty('--color-bg',      '#0a0a0a');
+        root.setProperty('--accent',        '#39ff14');
+    };
 })();

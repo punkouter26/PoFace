@@ -33,7 +33,10 @@ public sealed class ScoringEndpointTests : IClassFixture<AzuriteFixture>
         client.DefaultRequestHeaders.Add("X-Test-User-Id", "test-user-001");
 
         // First create a session so SessionId exists.
-        var sessionId = "test-session-1";
+        var startResp = await client.PostAsync("/api/sessions", null);
+        startResp.EnsureSuccessStatusCode();
+        var start = await startResp.Content.ReadFromJsonAsync<StartSessionDto>();
+        var sessionId = start!.SessionId;
 
         using var content = BuildJpegContent(512); // tiny valid sub-500KB payload
         var response = await client.PostAsync(
@@ -116,6 +119,10 @@ public sealed class ScoringEndpointTests : IClassFixture<AzuriteFixture>
     }
 
     // ── DTO for deserialization ───────────────────────────────────────────────
+
+    private sealed record StartSessionDto(
+        string SessionId,
+        IReadOnlyList<object> Rounds);
 
     private sealed record ScoreRoundResultDto(
         int RoundNumber,

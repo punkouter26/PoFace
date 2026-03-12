@@ -186,6 +186,9 @@ static async Task<IResult> HandleHealthAsync(MediatR.ISender sender, Cancellatio
         statusCode: healthy ? StatusCodes.Status200OK : StatusCodes.Status503ServiceUnavailable);
 }
 
+// Unknown /api/* paths must return 404, not fall through to the SPA (OWASP A05).
+app.MapGet("/api/{**slug}", () => Results.NotFound()).AllowAnonymous();
+
 app.MapFallbackToFile("index.html")
     .AllowAnonymous();
 

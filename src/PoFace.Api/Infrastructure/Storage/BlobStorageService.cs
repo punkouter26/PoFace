@@ -8,8 +8,6 @@ public interface IBlobStorageService
     Task<string> UploadRoundImageAsync(
         string userId, string sessionId, int roundNumber, Stream imageStream,
         CancellationToken cancellationToken = default);
-
-    Task<string> GetBlobUrlAsync(string blobPath);
 }
 
 public sealed class BlobStorageService : IBlobStorageService
@@ -35,12 +33,5 @@ public sealed class BlobStorageService : IBlobStorageService
         }, cancellationToken);
 
         return blobClient.Uri.ToString();
-    }
-
-    public Task<string> GetBlobUrlAsync(string blobPath)
-    {
-        var container = _client.GetBlobContainerClient(ContainerName);
-        var blobClient = container.GetBlobClient(blobPath);
-        return Task.FromResult(blobClient.Uri.ToString());
     }
 }

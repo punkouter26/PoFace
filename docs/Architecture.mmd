@@ -1,0 +1,48 @@
+C4Context
+  title System Context — PoFace Arcade (Azure Deployment)
+
+  Person(player, "Player", "Uses webcam to match emotions in 5-round game. Anonymous or Entra ID authenticated.")
+
+  System_Boundary(azure, "Azure — per-environment resources") {
+    System(webapp, "PoFace Web App", "ASP.NET Core 10 + Blazor WASM SPA. Hosts REST API and static client assets. Runs on Linux App Service.")
+  }
+
+  System_Ext(entra, "Microsoft Entra ID", "Azure AD tenant. Issues MSAL OIDC tokens for authenticated players. Optional — anonymous play supported.")
+  System_Ext(vision, "Google Cloud Vision API", "Detects faces and scores emotion confidence (Joy, Anger, Surprise, Sorrow, Fear) for each captured JPEG frame.")
+
+  System_Boundary(azureshared, "Azure — shared resources (PoShared RG)") {
+    System(kv, "Azure Key Vault", "Stores StorageConnectionString, GoogleVision:CredentialJson, AzureAd secrets. Accessed via managed identity.")
+    System(appins, "Azure Application Insights", "OTel traces, metrics, and structured logs ingested from the web app.")
+    System(plan, "Azure App Service Plan", "Shared Linux plan (asp-poshared-linux) hosting the App Service.")
+  }
+
+  System_Boundary(storage, "Azure Storage Account") {
+    SystemDb(blob, "Blob Storage", "Container: poface-captures. Stores per-round JPEG image frames. Auto-expiry lifecycle policy.")
+    SystemDb(table, "Table Storage", "Tables: GameSessions, Players, RoundCaptures, Leaderboard. Schemaless; no ORM.")
+  }
+
+  Rel(player, webapp, "Plays game, views leaderboard, views recap", "HTTPS (Blazor WASM)")
+  Rel(webapp, entra, "Validates Bearer JWT / redirects for MSAL login", "HTTPS / OIDC")
+  Rel(player, entra, "Authenticates (optional)", "MSAL browser redirect")
+  Rel(webapp, vision, "POST JPEG frame for emotion analysis", "HTTPS gRPC/REST")
+  Rel(webapp, kv, "Reads secrets at startup", "HTTPS — managed identity RBAC")
+  Rel(webapp, blob, "Stores and retrieves round JPEG captures", "Azure SDK")
+  Rel(webapp, table, "Reads/writes game sessions, scores, leaderboard", "Azure SDK")
+  Rel(webapp, appins, "Emits OTel traces and metrics", "HTTPS")
+
+  UpdateRelStyle(player, webapp, $textColor="#fff", $lineColor="#4fc3f7")
+  UpdateRelStyle(webapp, vision, $textColor="#fff", $lineColor="#ff8a65")
+  UpdateRelStyle(webapp, kv, $textColor="#fff", $lineColor="#ce93d8")
+  UpdateRelStyle(webapp, blob, $textColor="#fff", $lineColor="#80cbc4")
+  UpdateRelStyle(webapp, table, $textColor="#fff", $lineColor="#80cbc4")
+  UpdateRelStyle(webapp, appins, $textColor="#fff", $lineColor="#ffcc02")
+
+  UpdateElementStyle(player, $fontColor="#000", $bgColor="#e3f2fd", $borderColor="#1565c0")
+  UpdateElementStyle(webapp, $fontColor="#fff", $bgColor="#1565c0", $borderColor="#0d47a1")
+  UpdateElementStyle(entra, $fontColor="#fff", $bgColor="#1a237e", $borderColor="#0d47a1")
+  UpdateElementStyle(vision, $fontColor="#fff", $bgColor="#bf360c", $borderColor="#7f0000")
+  UpdateElementStyle(kv, $fontColor="#fff", $bgColor="#6a1b9a", $borderColor="#4a148c")
+  UpdateElementStyle(appins, $fontColor="#000", $bgColor="#ffd54f", $borderColor="#f57f17")
+  UpdateElementStyle(plan, $fontColor="#fff", $bgColor="#37474f", $borderColor="#263238")
+  UpdateElementStyle(blob, $fontColor="#fff", $bgColor="#00695c", $borderColor="#004d40")
+  UpdateElementStyle(table, $fontColor="#fff", $bgColor="#004d40", $borderColor="#00251a")

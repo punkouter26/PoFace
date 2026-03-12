@@ -112,7 +112,7 @@ public sealed class GoogleVisionFaceAnalysisService : IFaceAnalysisService
             FaceDetected            = true,
             EmotionLabel            = emotionLabel,
             TargetEmotionConfidence = emotionConfidence,
-            QualityLabel            = blurLevel == "None" ? "High" : "Low",
+            QualityLabel            = (blurLevel == "None" && exposureLevel == "GoodExposure") ? "High" : "Low",
             HeadPoseYaw             = yaw,
             HeadPosePitch           = pitch,
             HeadPoseRoll            = roll,

@@ -11,7 +11,7 @@ public static class DiagnosticsEndpoints
             var report = await sender.Send(new DiagnosticsQuery(), ct);
             return Results.Ok(report);
         })
-        .AllowAnonymous()
+        .RequireAuthorization()
         .WithName("GetDiagnostics");
 
         return app;

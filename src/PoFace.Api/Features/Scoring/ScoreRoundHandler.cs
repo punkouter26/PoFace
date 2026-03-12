@@ -40,6 +40,29 @@ public sealed class ScoreRoundHandler : IRequestHandler<ScoreRoundCommand, Score
             command.TargetEmotion,
             command.ImageBytes.Length);
 
+        // 0. Idempotency guard — block re-scoring an already-scored round.
+        var existingCapture = await _tableStorage.GetEntityAsync<RoundCaptureEntity>(
+            "RoundCaptures", command.SessionId, $"{command.SessionId}_{command.RoundNumber}", cancellationToken);
+        if (existingCapture is not null)
+        {
+            _logger.LogWarning(
+                "Round re-score attempt blocked -> SessionId={SessionId}, RoundNumber={RoundNumber}",
+                command.SessionId, command.RoundNumber);
+            return new ScoreRoundResult(
+                RoundNumber:   existingCapture.RoundNumber,
+                TargetEmotion: existingCapture.TargetEmotion,
+                Score:         existingCapture.Score,
+                RawConfidence: existingCapture.RawConfidence,
+                QualityLabel:  "Unknown",
+                HeadPoseValid: existingCapture.HeadPoseValid,
+                HeadPoseYaw:   existingCapture.HeadPoseValid ? existingCapture.HeadPoseYaw   : null,
+                HeadPosePitch: existingCapture.HeadPoseValid ? existingCapture.HeadPosePitch : null,
+                HeadPoseRoll:  null,
+                FaceDetected:  existingCapture.RawConfidence > 0,
+                ImageUrl:      existingCapture.ImageBlobUrl,
+                Diagnostics:   new ScoreRoundDiagnostics(0, 0, "", "", "", "", "", "", ""));
+        }
+
         // 1. Analyse the captured frame via Azure Face API.
         var analysis = await _faceAnalysis.AnalyzeFrameAsync(
             command.ImageBytes, command.TargetEmotion, cancellationToken);
@@ -89,26 +112,27 @@ public sealed class ScoreRoundHandler : IRequestHandler<ScoreRoundCommand, Score
 
         // 5. Build the HTTP response record.
         return new ScoreRoundResult(
-            RoundNumber           : command.RoundNumber,
-            TargetEmotion         : command.TargetEmotion,
-            Score                 : analysis.Score,
-            RawConfidence         : analysis.TargetEmotionConfidence,
-            QualityLabel          : analysis.QualityLabel,
-            HeadPoseValid         : analysis.HeadPoseValid,
-            HeadPoseYaw           : analysis.FaceDetected ? analysis.HeadPoseYaw   : null,
-            HeadPosePitch         : analysis.FaceDetected ? analysis.HeadPosePitch : null,
-            HeadPoseRoll          : analysis.FaceDetected ? analysis.HeadPoseRoll  : null,
-            FaceDetected          : analysis.FaceDetected,
-            ImageUrl              : imageUrl,
-            DetectionConfidence   : analysis.DetectionConfidence,
-            LandmarkingConfidence : analysis.LandmarkingConfidence,
-            HeadwearLikelihood    : analysis.HeadwearLikelihood,
-            JoyLikelihood         : analysis.JoyLikelihood,
-            SorrowLikelihood      : analysis.SorrowLikelihood,
-            AngerLikelihood       : analysis.AngerLikelihood,
-            SurpriseLikelihood    : analysis.SurpriseLikelihood,
-            BlurLevel             : analysis.BlurLevel,
-            ExposureLevel         : analysis.ExposureLevel
+            RoundNumber   : command.RoundNumber,
+            TargetEmotion : command.TargetEmotion,
+            Score         : analysis.Score,
+            RawConfidence : analysis.TargetEmotionConfidence,
+            QualityLabel  : analysis.QualityLabel,
+            HeadPoseValid : analysis.HeadPoseValid,
+            HeadPoseYaw   : analysis.FaceDetected ? analysis.HeadPoseYaw   : null,
+            HeadPosePitch : analysis.FaceDetected ? analysis.HeadPosePitch : null,
+            HeadPoseRoll  : analysis.FaceDetected ? analysis.HeadPoseRoll  : null,
+            FaceDetected  : analysis.FaceDetected,
+            ImageUrl      : imageUrl,
+            Diagnostics   : new ScoreRoundDiagnostics(
+                DetectionConfidence   : analysis.DetectionConfidence,
+                LandmarkingConfidence : analysis.LandmarkingConfidence,
+                HeadwearLikelihood    : analysis.HeadwearLikelihood,
+                JoyLikelihood         : analysis.JoyLikelihood,
+                SorrowLikelihood      : analysis.SorrowLikelihood,
+                AngerLikelihood       : analysis.AngerLikelihood,
+                SurpriseLikelihood    : analysis.SurpriseLikelihood,
+                BlurLevel             : analysis.BlurLevel,
+                ExposureLevel         : analysis.ExposureLevel)
         );
     }
 }

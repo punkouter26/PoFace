@@ -9,14 +9,14 @@
 
 @if (_report is null)
 {
-    <p>Loading diagnostics...</p>
+    <TerminalSpinner Message="RUNNING DIAGNOSTICS..." />
 }
 else
 {
     <div class="panel">
         <h2>Service Health</h2>
-        @StatusLine("Face API", _report.Services.FaceApi.Status, _report.Services.FaceApi.Message)
-        @StatusLine("Blob Storage", _report.Services.BlobStorage.Status, _report.Services.BlobStorage.Message)
+        @StatusLine("Face API",      _report.Services.FaceApi.Status,      _report.Services.FaceApi.Message)
+        @StatusLine("Blob Storage",  _report.Services.BlobStorage.Status,  _report.Services.BlobStorage.Message)
         @StatusLine("Table Storage", _report.Services.TableStorage.Status, _report.Services.TableStorage.Message)
     </div>
 
@@ -56,15 +56,17 @@ else
         StateHasChanged();
     }
 
-    private RenderFragment StatusLine(string serviceName, string status, string? message = null) => __builder =>
+    private static RenderFragment StatusLine(string serviceName, string status, string? message = null) => __builder =>
     {
-        var color = status.Equals("OK", StringComparison.OrdinalIgnoreCase) ? "#00ff00" : "#ff2b2b";
-        __builder.OpenElement(0, "p");
-        __builder.AddMarkupContent(1, $"<span style=\"display:inline-block;width:10px;height:10px;border-radius:50%;background:{color};margin-right:8px;\"></span>");
-        __builder.AddContent(2, $"{serviceName}: {status}");
-        if (!string.IsNullOrWhiteSpace(message))
-            __builder.AddMarkupContent(3, $" <span style=\"opacity:0.65;font-size:0.85em;\">({message})</span>");
-        __builder.CloseElement();
+        var ok = status.Equals("OK", StringComparison.OrdinalIgnoreCase);
+        <p>
+            <span class="@(ok ? "status-dot status-ok" : "status-dot status-fail")" aria-hidden="true"></span>
+            @serviceName: @status
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <span class="status-msg">(@message)</span>
+            }
+        </p>;
     };
 
     public void Dispose()

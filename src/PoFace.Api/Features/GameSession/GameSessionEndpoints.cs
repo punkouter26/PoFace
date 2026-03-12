@@ -1,6 +1,7 @@
 using MediatR;
 using System.Security.Claims;
 using PoFace.Api.Features.Recap;
+using PoFace.Api.Infrastructure.Storage;
 
 namespace PoFace.Api.Features.GameSession;
 
@@ -59,11 +60,20 @@ public static class GameSessionEndpoints
         string sessionId,
         IMediator mediator,
         IGameSessionLookupService sessionLookup,
+        ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
         var session = await sessionLookup.GetBySessionIdAsync(sessionId, cancellationToken);
         if (session is null)
             return Results.NotFound();
+
+        // Ownership guard — authenticated sessions may only be completed by their owner (OWASP A01).
+        if (session.IsAuthenticatedUser)
+        {
+            var callerId = GetUserId(user);
+            if (!string.Equals(callerId, session.UserId, StringComparison.Ordinal))
+                return Results.Forbid();
+        }
 
         try
         {
@@ -86,15 +96,25 @@ public static class GameSessionEndpoints
         }
     }
 
-    private static Task<IResult> HandleDiscardSessionAsync(
+    private static async Task<IResult> HandleDiscardSessionAsync(
         string sessionId,
+        IGameSessionLookupService sessionLookup,
+        ITableStorageService tableStorage,
         CancellationToken cancellationToken)
     {
-        // T031 spec: "No storage writes occur" on discard.
-        // In Phase 3 we simply return 204; cleanup is handled by TTL/expiry in Phase 4.
-        _ = sessionId;
-        _ = cancellationToken;
-        return Task.FromResult(Results.NoContent());
+        var session = await sessionLookup.GetBySessionIdAsync(sessionId, cancellationToken);
+        if (session is null)
+            return Results.NoContent(); // idempotent — session already gone
+
+        if (!session.IsCompleted)
+        {
+            session.IsCompleted = true;
+            session.CompletedAt = DateTimeOffset.UtcNow;
+            session.ExpiresAt   = DateTimeOffset.UtcNow.Add(TimeSpan.FromHours(1));
+            await tableStorage.UpsertEntityAsync("GameSessions", session, cancellationToken);
+        }
+
+        return Results.NoContent();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

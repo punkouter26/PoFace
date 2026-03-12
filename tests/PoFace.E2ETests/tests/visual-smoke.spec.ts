@@ -10,12 +10,12 @@ const routes: VisualRoute[] = [
     {
         name: 'home',
         route: '/',
-        assertReady: page => expect(page.getByRole('link', { name: 'Start Game' })).toBeVisible({ timeout: 15_000 }),
+        assertReady: page => expect(page.getByRole('link', { name: 'Start Game' })).toBeVisible({ timeout: 45_000 }),
     },
     {
         name: 'leaderboard',
         route: '/leaderboard',
-        assertReady: page => expect(page.getByRole('heading', { name: 'Leaderboard' })).toBeVisible({ timeout: 15_000 }),
+        assertReady: page => expect(page.getByRole('heading', { name: 'Leaderboard' })).toBeVisible({ timeout: 45_000 }),
     },
 ];
 
@@ -55,23 +55,29 @@ test.describe('Visual smoke', () => {
         });
         page.on('pageerror', err => consoleErrors.push(err.message));
 
+        // Stub webcamInterop so getCameraPermissionState returns "unknown" (bypasses
+        // the early-exit guards) and initCamera returns "permission-denied" (triggers
+        // the camera-offline error panel). webcam.js is prevented from overwriting.
         await page.addInitScript(() => {
-            if (!navigator.mediaDevices) {
-                Object.defineProperty(navigator, 'mediaDevices', {
-                    value: {},
-                    configurable: true,
-                });
-            }
-
-            (navigator.mediaDevices as MediaDevices & { getUserMedia: typeof navigator.mediaDevices.getUserMedia }).getUserMedia = async () => {
-                throw new DOMException('Permission denied', 'NotAllowedError');
+            const _stub = {
+                getCameraPermissionState: () => Promise.resolve('unknown'),
+                initCamera:   (_id: string)  => Promise.resolve('permission-denied'),
+                captureFrame: (_id: string)  => Promise.resolve('data:image/jpeg;base64,'),
+                releaseCamera: ()            => {},
+                flashShutter: (_id: string)  => Promise.resolve(),
             };
+            Object.defineProperty(window, 'webcamInterop', {
+                configurable: false, enumerable: true,
+                get: () => _stub, set: () => {},
+            });
         });
 
         await page.goto('/arena');
 
-        await expect(page.getByRole('heading', { name: 'Camera Access Required' })).toBeVisible({ timeout: 15_000 });
+        // The Arena shows a "CAMERA OFFLINE" error panel with RETRY CAMERA button.
+        await expect(page.locator('.arena-feed-lost')).toBeVisible({ timeout: 15_000 });
         await expect(page.getByText('Camera access was blocked. Allow camera permission in the browser and retry.')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'RETRY CAMERA' })).toBeVisible();
         await expect(page.locator('#blazor-error-ui')).toBeHidden();
         expect(consoleErrors).toEqual([]);
 

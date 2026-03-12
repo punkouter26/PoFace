@@ -486,3 +486,11 @@ tests/PoFace.E2ETests/node_modules/
 tests/PoFace.E2ETests/dist/
 tests/PoFace.E2ETests/playwright-report/
 tests/PoFace.E2ETests/test-results/
+
+# PoFace-specific build outputs
+publish-output/
+publish-output.zip
+infra/main.json
+
+# Local tooling state
+.potune-state.json

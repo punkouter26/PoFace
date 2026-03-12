@@ -17,6 +17,19 @@ public sealed record ScoreRoundCommand(
 
 // ── Result ───────────────────────────────────────────────────────────────────
 
+/// <summary>Raw Google Cloud Vision face attributes, returned as a nested object.</summary>
+public sealed record ScoreRoundDiagnostics(
+    double DetectionConfidence,
+    double LandmarkingConfidence,
+    string HeadwearLikelihood,
+    string JoyLikelihood,
+    string SorrowLikelihood,
+    string AngerLikelihood,
+    string SurpriseLikelihood,
+    string BlurLevel,
+    string ExposureLevel
+);
+
 /// <summary>Serialized directly as the HTTP 200 JSON response body.</summary>
 public sealed record ScoreRoundResult(
     int     RoundNumber,
@@ -30,16 +43,7 @@ public sealed record ScoreRoundResult(
     double? HeadPoseRoll,
     bool    FaceDetected,
     string  ImageUrl,
-    // ── Google Cloud Vision attributes ───────────────────────────────────
-    double  DetectionConfidence,
-    double  LandmarkingConfidence,
-    string  HeadwearLikelihood,
-    string  JoyLikelihood,
-    string  SorrowLikelihood,
-    string  AngerLikelihood,
-    string  SurpriseLikelihood,
-    string  BlurLevel,
-    string  ExposureLevel
+    ScoreRoundDiagnostics Diagnostics
 );
 
 // ── Table Entity ─────────────────────────────────────────────────────────────

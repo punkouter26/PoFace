@@ -1,5 +1,5 @@
 @using PoFace.Client.Services
-@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@implements IDisposable
 
 @* Shown during Analyzing: frozen capture + spinner.
    Shown during ScoreReveal: frozen capture + animated score. *@
@@ -30,93 +30,20 @@
         @if (State == GameState.ScoreReveal && LastResult is not null)
         {
             <div class="score-reveal-panel" role="status">
-                <p class="emotion-label">@LastResult.TargetEmotion</p>
-                <p class="score-value" aria-label="Score @_displayScore out of 10">
+                <p class="emotion-label">@WithEmoji(LastResult.TargetEmotion)</p>
+                <p class="score-value @(LastResult.Score == 10 ? "score-perfect" : "")" aria-label="Score @_displayScore out of 10">
                     @_displayScore <span class="score-denom">/ 10</span>
                 </p>
+
+                @if (LastResult.IsNetworkError)
+                {
+                    <p class="network-error-notice" role="alert">Connection error — this round scored 0</p>
+                }
 
                 @* ── Face API diagnostics (diagnostic mode only) ── *@
                 @if (DiagMode)
                 {
-                    <div class="face-debug-grid">
-                        <span class="dbg-label">Face detected</span>
-                        <span class="dbg-value @(LastResult.FaceDetected ? "dbg-ok" : "dbg-warn")">
-                            @(LastResult.FaceDetected ? "YES" : "NO")
-                        </span>
-
-                        <span class="dbg-label">Confidence</span>
-                        <span class="dbg-value">@((LastResult.RawConfidence * 100).ToString("0"))%</span>
-
-                        @if (LastResult.FaceDetected)
-                        {
-                            <span class="dbg-label">Detection</span>
-                            <span class="dbg-value">@((LastResult.DetectionConfidence * 100).ToString("0"))%</span>
-
-                            <span class="dbg-label">Landmark</span>
-                            <span class="dbg-value">@((LastResult.LandmarkingConfidence * 100).ToString("0"))%</span>
-
-                            <span class="dbg-label">Pose valid</span>
-                            <span class="dbg-value @(LastResult.HeadPoseValid ? "dbg-ok" : "dbg-warn")">
-                                @(LastResult.HeadPoseValid ? "YES" : "NO")
-                            </span>
-
-                            @if (LastResult.HeadPoseYaw.HasValue)
-                            {
-                                <span class="dbg-label">Yaw</span>
-                                <span class="dbg-value">@(LastResult.HeadPoseYaw.Value.ToString("0.0"))°</span>
-                            }
-                            @if (LastResult.HeadPosePitch.HasValue)
-                            {
-                                <span class="dbg-label">Pitch</span>
-                                <span class="dbg-value">@(LastResult.HeadPosePitch.Value.ToString("0.0"))°</span>
-                            }
-                            @if (LastResult.HeadPoseRoll.HasValue)
-                            {
-                                <span class="dbg-label">Roll</span>
-                                <span class="dbg-value">@(LastResult.HeadPoseRoll.Value.ToString("0.0"))°</span>
-                            }
-
-                            <span class="dbg-label">Quality</span>
-                            <span class="dbg-value">@LastResult.QualityLabel</span>
-
-                            <span class="dbg-label">Joy</span>
-                            <span class="dbg-value @(LastResult.JoyLikelihood is "High" or "Medium" ? "dbg-ok" : "")">@LastResult.JoyLikelihood</span>
-
-                            <span class="dbg-label">Sorrow</span>
-                            <span class="dbg-value @(LastResult.SorrowLikelihood is "High" or "Medium" ? "dbg-warn" : "")">@LastResult.SorrowLikelihood</span>
-
-                            <span class="dbg-label">Anger</span>
-                            <span class="dbg-value @(LastResult.AngerLikelihood is "High" or "Medium" ? "dbg-warn" : "")">@LastResult.AngerLikelihood</span>
-
-                            <span class="dbg-label">Surprise</span>
-                            <span class="dbg-value @(LastResult.SurpriseLikelihood is "High" or "Medium" ? "dbg-ok" : "")">@LastResult.SurpriseLikelihood</span>
-
-                            @if (LastResult.HeadwearLikelihood is "High" or "Medium" or "Low")
-                            {
-                                <span class="dbg-label">Headwear</span>
-                                <span class="dbg-value dbg-warn">@LastResult.HeadwearLikelihood</span>
-                            }
-                            @if (!string.IsNullOrEmpty(LastResult.BlurLevel) && LastResult.BlurLevel != "None")
-                            {
-                                <span class="dbg-label">Blur</span>
-                                <span class="dbg-value @(LastResult.BlurLevel == "High" ? "dbg-warn" : "")">@LastResult.BlurLevel</span>
-                            }
-                            @if (!string.IsNullOrEmpty(LastResult.ExposureLevel))
-                            {
-                                <span class="dbg-label">Exposure</span>
-                                <span class="dbg-value @(LastResult.ExposureLevel == "GoodExposure" ? "dbg-ok" : "dbg-warn")">@LastResult.ExposureLevel</span>
-                            }
-                        }
-                    </div>
-
-                    @if (!LastResult.FaceDetected)
-                    {
-                        <p class="face-hint">No face detected — check lighting &amp; camera</p>
-                    }
-                    else if (!LastResult.HeadPoseValid)
-                    {
-                        <p class="face-hint">Head angle too large — keep head centered</p>
-                    }
+                    <FaceDebugGrid Result="LastResult" />
                 }
             </div>
         }
@@ -126,39 +53,58 @@
 @code {
     [Parameter, EditorRequired] public GameState   State      { get; set; }
     [Parameter]                 public RoundResult? LastResult { get; set; }
+    [Parameter]                 public bool         DiagMode   { get; set; }
 
-    private bool DiagMode => Config.GetValue<bool>("DiagnosticMode");
+    private static readonly Dictionary<string, string> _emotionEmoji = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Happy"]     = "\U0001F60A",
+        ["Sad"]       = "\U0001F622",
+        ["Angry"]     = "\U0001F624",
+        ["Surprised"] = "\U0001F632",
+        ["Fearful"]   = "\U0001F628",
+        ["Disgusted"] = "\U0001F922",
+        ["Neutral"]   = "\U0001F610",
+    };
+
+    private static string WithEmoji(string? emotion)
+    {
+        if (emotion is null) return string.Empty;
+        return _emotionEmoji.TryGetValue(emotion, out var e) ? $"{e} {emotion}" : emotion;
+    }
 
     // Count-up animation: increments toward the real score over 500 ms.
     private int _displayScore;
-    private System.Threading.Timer? _countUpTimer;
+    private CancellationTokenSource? _countUpCts;
 
     protected override async Task OnParametersSetAsync()
     {
+        _countUpCts?.Cancel();
+        _countUpCts?.Dispose();
+        _countUpCts = null;
+
         if (State == GameState.ScoreReveal && LastResult is not null)
         {
             _displayScore = 0;
-            var target    = LastResult.Score;
-            var steps     = target > 0 ? target : 0;
-            var interval  = steps > 0 ? 500 / steps : 500;
-
-            _countUpTimer?.Dispose();
-            _countUpTimer = new System.Threading.Timer(_ =>
+            var target = LastResult.Score;
+            if (target > 0)
             {
-                if (_displayScore < target)
+                var interval = TimeSpan.FromMilliseconds(500 / target);
+                _countUpCts  = new CancellationTokenSource();
+                var cts      = _countUpCts;
+                _ = Task.Run(async () =>
                 {
-                    _displayScore++;
-                    InvokeAsync(StateHasChanged);
-                }
-                else
-                {
-                    _countUpTimer?.Dispose();
-                }
-            }, null, interval, interval);
-        }
-        else
-        {
-            _countUpTimer?.Dispose();
+                    using var timer = new PeriodicTimer(interval);
+                    try
+                    {
+                        while (_displayScore < target && await timer.WaitForNextTickAsync(cts.Token))
+                        {
+                            _displayScore++;
+                            await InvokeAsync(StateHasChanged);
+                        }
+                    }
+                    catch (OperationCanceledException) { /* component disposed or state changed */ }
+                }, CancellationToken.None);
+            }
         }
 
         await Task.CompletedTask;
@@ -166,6 +112,7 @@
 
     public void Dispose()
     {
-        _countUpTimer?.Dispose();
+        _countUpCts?.Cancel();
+        _countUpCts?.Dispose();
     }
 }

@@ -1,6 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 using MediatR;
+using PoFace.Api.Features.Scoring;
 using PoFace.Api.Infrastructure.Storage;
 
 namespace PoFace.Api.Features.GameSession;
@@ -39,7 +40,7 @@ public sealed class GameSessionEntity : ITableEntity
 /// </summary>
 public sealed class PlayerEntity : ITableEntity
 {
-    public string PartitionKey { get; set; } = "Player"; // Constant shard key
+    public string PartitionKey { get; set; } = string.Empty; // Single-char hex shard (first char of UserId) to avoid hot partition
     public string RowKey       { get; set; } = string.Empty; // UserId
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
@@ -66,10 +67,6 @@ public sealed record RoundInfo(int RoundNumber, string TargetEmotion);
 
 public sealed class StartSessionHandler : IRequestHandler<StartSessionCommand, StartSessionResult>
 {
-    // FR-009: canonical order — NEVER shuffled.
-    private static readonly string[] EmotionOrder =
-        ["Happiness", "Surprise", "Anger", "Sadness", "Fear"];
-
     private readonly ITableStorageService _tableStorage;
 
     public StartSessionHandler(ITableStorageService tableStorage)
@@ -90,7 +87,7 @@ public sealed class StartSessionHandler : IRequestHandler<StartSessionCommand, S
         {
             var player = new PlayerEntity
             {
-                PartitionKey = "Player",
+                PartitionKey = effectiveUserId.Length > 0 ? effectiveUserId[..1].ToUpperInvariant() : "0",
                 RowKey       = effectiveUserId,
                 UserId       = effectiveUserId,
                 DisplayName  = effectiveDisplayName,
@@ -115,8 +112,9 @@ public sealed class StartSessionHandler : IRequestHandler<StartSessionCommand, S
         };
         await _tableStorage.UpsertEntityAsync("GameSessions", session, cancellationToken);
 
-        var rounds = EmotionOrder
-            .Select((emotion, i) => new RoundInfo(i + 1, emotion))
+        // FR-009: canonical order — NEVER shuffled (single source of truth in RoundEmotions).
+        var rounds = Enumerable.Range(1, 5)
+            .Select(i => new RoundInfo(i, RoundEmotions.ForRound(i)))
             .ToArray();
 
         return new StartSessionResult(sessionId, rounds);

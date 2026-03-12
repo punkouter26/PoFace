@@ -15,7 +15,7 @@ public sealed record GetRecapQuery(string SessionId) : IRequest<GetRecapResult>;
 
 public sealed record GetRecapResult(RecapDto? Recap, RecapStatus Status);
 
-public enum RecapStatus { Found, NotFound, Gone }
+public enum RecapStatus { Found, NotFound, Gone, Incomplete }
 
 public sealed record RecapDto(
     string SessionId,
@@ -71,7 +71,9 @@ public sealed class GetRecapHandler : IRequestHandler<GetRecapQuery, GetRecapRes
 
         if (session is null)
             return new GetRecapResult(null, RecapStatus.NotFound);
-
+        // Guard: incomplete sessions have no valid recap yet (SC-031).
+        if (!session.IsCompleted)
+            return new GetRecapResult(null, RecapStatus.Incomplete);
         // ── Step 2: Check expiry (FR-030) ─────────────────────────────────────
         if (session.ExpiresAt.HasValue && session.ExpiresAt.Value < DateTimeOffset.UtcNow)
             return new GetRecapResult(null, RecapStatus.Gone);
@@ -120,12 +122,19 @@ public interface IGameSessionLookupService
 
 public sealed class GameSessionLookupService : IGameSessionLookupService
 {
+    // Validates sessionId before OData filter interpolation to prevent injection (SC-008, OWASP A03).
+    private static readonly Regex LookupIdPattern =
+        new(@"^[0-9a-f]{32}$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private readonly TableServiceClient _tableService;
 
     public GameSessionLookupService(TableServiceClient tableService) => _tableService = tableService;
 
     public async Task<GameSessionEntity?> GetBySessionIdAsync(string sessionId, CancellationToken ct = default)
     {
+        if (!LookupIdPattern.IsMatch(sessionId))
+            return null;
+
         var sessionTable = _tableService.GetTableClient("GameSessions");
         await sessionTable.CreateIfNotExistsAsync(ct);
 
