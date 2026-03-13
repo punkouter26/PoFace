@@ -130,7 +130,6 @@ if (!app.Environment.IsProduction())
     app.UseDeveloperExceptionPage();
 
 app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
 
 app.UseSerilogRequestLogging();
 app.UseCors("PoFaceClient");
@@ -188,6 +187,8 @@ static async Task<IResult> HandleHealthAsync(MediatR.ISender sender, Cancellatio
 
 // Unknown /api/* paths must return 404, not fall through to the SPA (OWASP A05).
 app.MapGet("/api/{**slug}", () => Results.NotFound()).AllowAnonymous();
+
+app.UseStaticFiles();
 
 app.MapFallbackToFile("index.html")
     .AllowAnonymous();
